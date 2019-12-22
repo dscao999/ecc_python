@@ -7,7 +7,7 @@ import tkinter.filedialog as filedialog
 from Crypto.Cipher import AES
 import Crypto.Random as random
 import audiorand
-import binascii
+import ctypes
 
 class KeyFile(tk.Frame):
     def generate_key(self):
@@ -28,9 +28,8 @@ class KeyFile(tk.Frame):
         cip = ifp.read(48)
         while cip:
             pla = aes.decrypt(cip)
-            crc32 = binascii.crc32(pla[:44])
-            crcf = int.from_bytes(pla[44:], 'big')
-            if crc32 != crcf:
+            crc32 = self.libecc.crc32(pla, len(pla))
+            if crc32 != 0:
                 print("Invalid Pass Word!")
                 cip = ifp.read(48)
                 continue
@@ -91,6 +90,7 @@ class KeyFile(tk.Frame):
 
         self.sndrnd = audiorand.SndRnd()
         self.keylist = []
+        self.libecc = ctypes.CDLL("../ecc256/libecc256.so")
 
     def select_file(self):
         fname = filedialog.asksaveasfilename(parent=self, title='Select Key File',
@@ -108,7 +108,9 @@ class KeyFile(tk.Frame):
         for keystr in self.keylist:
             appstr = self.sndrnd.ecc256_random(1)
             plain = keystr + appstr[:12]
-            crc32 = binascii.crc32(bytes(plain))
+            crc32 = self.libecc.crc32(plain, len(plain))
+            if (crc32 < 0):
+                crc32 += 2**32
             plain += crc32.to_bytes(4, 'big')
             scrtext = aes.encrypt(plain)
             ofp.write(scrtext)
