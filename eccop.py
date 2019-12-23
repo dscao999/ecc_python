@@ -9,6 +9,49 @@ import Crypto.Random as random
 import audiorand
 import ctypes
 
+class SList(tk.Frame):
+    def clearlist(self):
+        self.lbox.delete(0, tk.END)
+        self.hbox.delete(0, tk.END)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.pack(expand=tk.YES, fill=tk.BOTH);
+
+        mfont = ('courier', 16, 'bold')
+        f1 = tk.Frame(self)
+        f1.pack(side=tk.TOP, expand=tk.YES, fill=tk.BOTH)
+        f2 = tk.Frame(self)
+        f2.pack(side=tk.BOTTOM, expand=tk.YES, fill=tk.BOTH)
+
+        tk.Label(f1, text="Public Keys:", font=mfont, width=32).pack(side=tk.LEFT)
+        tk.Label(f1, text="Public Key Hash:", font=mfont, width=32).pack(side=tk.RIGHT)
+
+        f2_l = tk.Frame(f2)
+        f2_r = tk.Frame(f2)
+        f2_l.pack(side=tk.LEFT, expand=tk.YES, fill=tk.BOTH)
+        f2_r.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.BOTH)
+
+        sbar = tk.Scrollbar(f2_l)
+        lbox = tk.Listbox(f2_l, relief=tk.SUNKEN, font=mfont, width=46)
+        sbar.config(command=lbox.yview)
+        lbox.config(yscrollcommand=sbar.set)
+        sbar.pack(side=tk.RIGHT, fill=tk.Y)
+        lbox.pack(side=tk.LEFT, expand=tk.YES, fill=tk.BOTH)
+        self.lbox = lbox
+
+        sbar = tk.Scrollbar(f2_r)
+        hbox = tk.Listbox(f2_r, relief=tk.SUNKEN, font=mfont, width=46)
+        sbar.config(command=hbox.yview)
+        hbox.config(yscrollcommand=sbar.set)
+        sbar.pack(side=tk.RIGHT, fill=tk.Y)
+        hbox.pack(side=tk.LEFT, expand=tk.YES, fill=tk.BOTH)
+        self.hbox = hbox
+
+    def append_item(self, pub, pubhash):
+        self.lbox.insert(tk.END, pub)
+        self.hbox.insert(tk.END, pubhash)
+
 class KeyFile(tk.Frame):
     def append_key(self, keystr):
         b64key = b'0' + audiorand.bin2str_b64(keystr)
@@ -21,12 +64,11 @@ class KeyFile(tk.Frame):
         self.libecc.ecc_key_hash_str(pkeyhash, 48, ecckey)
         pkeyhash = bytes(pkeyhash).decode('utf-8')
         self.keylist.append((keystr, pubkey, pkeyhash))
-        print(pubkey, '---', pkeyhash)
+        self.publist.append_item(pubkey, pkeyhash)
 
     def generate_key(self):
         keystr = self.sndrnd.ecc256_random(5)
         self.append_key(keystr)
-        print(audiorand.bin2str_b64(keystr))
 
     def load_key(self):
         fname = filedialog.askopenfilename(parent=self, title='Load Key File',
@@ -34,6 +76,7 @@ class KeyFile(tk.Frame):
         if len(fname) == 0:
             return
         self.keylist = []
+        self.publist.clearlist()
         mh = audiorand.hashlib.new('ripemd160')
         mh.update(self.passwd_str.get().encode('utf-8'))
         passwd = mh.digest()
@@ -55,7 +98,7 @@ class KeyFile(tk.Frame):
 
     def __init__(self, parent=None, fname=None, width=32):
         super().__init__(parent)
-        self.mfont = ('courier', 16, 'bold')
+        mfont = ('courier', 16, 'bold')
         self.pack(side=tk.TOP, expand=tk.YES, fill=tk.BOTH)
 
         f1 = tk.Frame(self)
@@ -70,22 +113,24 @@ class KeyFile(tk.Frame):
 
         row2 = tk.Frame(f1_1)
         row2.pack(side=tk.TOP, expand=tk.YES, fill=tk.X)
-        passlab = tk.Label(row2, text='  Passwd:', font=self.mfont)
+        passlab = tk.Label(row2, text='  Passwd:', font=mfont)
         passlab.pack(side=tk.LEFT)
         self.passwd_str = tk.StringVar()
         self.passwd_str.set('')
         passtext = tk.Entry(row2, show="*", textvariable=self.passwd_str, width=width)
-        passtext.config(font=self.mfont)
+        passtext.config(font=mfont)
         passtext.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
 
         row4 = tk.Frame(f1_2)
         row4.pack(side=tk.BOTTOM, expand=tk.YES, fill=tk.X)
-        tk.Button(row4, text="Load Keys", font=self.mfont,
+        tk.Button(row4, text="Load Keys", font=mfont,
                 width=18, command=self.load_key).pack(side=tk.LEFT)
-        tk.Button(row4, text="Generate Key", font=self.mfont,
+        tk.Button(row4, text="Generate Key", font=mfont,
                 width=18, command=self.generate_key).pack(side=tk.RIGHT)
-        tk.Button(row4, text="Save Keys", font=self.mfont,
+        tk.Button(row4, text="Save Keys", font=mfont,
                 width=18, command=self.save_key).pack()
+
+        self.publist = SList(f2)
 
         self.sndrnd = audiorand.SndRnd()
         self.keylist = []
@@ -111,7 +156,6 @@ class KeyFile(tk.Frame):
             plain += crc32.to_bytes(4, 'big')
             scrtext = aes.encrypt(plain)
             ofp.write(scrtext)
-            print(keystr[1], '---', keystr[2])
         ofp.close()
 
     def mexit(self):
