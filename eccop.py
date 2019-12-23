@@ -16,15 +16,16 @@ class KeyFile(tk.Frame):
         print(audiorand.bin2str_b64(keystr))
 
     def load_key(self):
-        fname = self.fname_str.get()
-        if not os.path.exists(fname):
+        fname = filedialog.askopenfilename(parent=self, title='Load Key File',
+                filetypes=(("secret key", "*.pri"), ("all files", "*.*")))
+        if len(fname) == 0:
             return
         self.keylist = []
         mh = audiorand.hashlib.new('ripemd160')
         mh.update(self.passwd_str.get().encode('utf-8'))
         passwd = mh.digest()
         aes = AES.new(passwd[:16], AES.MODE_ECB)
-        ifp = open(self.fname_str.get(), 'rb')
+        ifp = open(fname, 'rb')
         cip = ifp.read(48)
         while cip:
             pla = aes.decrypt(cip)
@@ -34,8 +35,16 @@ class KeyFile(tk.Frame):
                 cip = ifp.read(48)
                 continue
             keystr = pla[:32]
-            self.keylist.append(keystr)
-            print(audiorand.bin2str_b64(keystr))
+            b64key = b'0' + audiorand.bin2str_b64(keystr)
+            ecckey = ctypes.create_string_buffer(b'\000', 96)
+            self.libecc.ecc_key_import_str(ecckey, b64key)
+            pubkey = ctypes.create_string_buffer(b'\000', 48)
+            self.libecc.ecc_key_export_str(pubkey, 48, ecckey, 0x7e)
+            pubkey = bytes(pubkey).decode('utf-8')
+            pkeyhash = ctypes.create_string_buffer(b'\000', 48)
+            self.libecc.ecc_key_hash_str(pkeyhash, 32, ecckey)
+            pkeyhash = bytes(pkeyhash).decode('utf-8')
+            self.keylist.append((keystr, pubkey, pkeyhash))
             cip = ifp.read(48)
         ifp.close()
 
@@ -54,18 +63,8 @@ class KeyFile(tk.Frame):
         f1_2 = tk.Frame(f1)
         f1_2.pack(side=tk.BOTTOM, expand=tk.YES, fill=tk.X)
 
-        row1 = tk.Frame(f1_1)
-        row1.pack(side=tk.TOP, expand=tk.YES, fill=tk.X)
-        keylab = tk.Label(row1, text='Key File:', font=self.mfont)
-        keylab.pack(side=tk.LEFT)
-        self.fname_str = tk.StringVar()
-        self.fname_str.set(fname)
-        keyf = tk.Entry(row1, width=width, textvariable=self.fname_str)
-        keyf.config(font=self.mfont)
-        keyf.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
-
         row2 = tk.Frame(f1_1)
-        row2.pack(side=tk.BOTTOM, expand=tk.YES, fill=tk.X)
+        row2.pack(side=tk.TOP, expand=tk.YES, fill=tk.X)
         passlab = tk.Label(row2, text='  Passwd:', font=self.mfont)
         passlab.pack(side=tk.LEFT)
         self.passwd_str = tk.StringVar()
@@ -74,40 +73,33 @@ class KeyFile(tk.Frame):
         passtext.config(font=self.mfont)
         passtext.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
 
-        row3 = tk.Frame(f1_2)
-        row3.pack(side=tk.TOP, expand=tk.YES, fill=tk.X)
-        tk.Button(row3, text="Select Key File", command=self.select_file,
-                font=self.mfont, width=16).pack(side=tk.TOP)
-
         row4 = tk.Frame(f1_2)
         row4.pack(side=tk.BOTTOM, expand=tk.YES, fill=tk.X)
-        tk.Button(row4, text="Generate New Key", font=self.mfont,
-                width=16, command=self.generate_key).pack(side=tk.LEFT)
-        tk.Button(row4, text="Save Key", font=self.mfont,
-                width=16, command=self.save_key).pack(side=tk.RIGHT)
-        tk.Button(row4, text="Load Key", font=self.mfont,
-                width=16, command=self.load_key).pack()
+        tk.Button(row4, text="Load Keys", font=self.mfont,
+                width=18, command=self.load_key).pack(side=tk.LEFT)
+        tk.Button(row4, text="Generate Key", font=self.mfont,
+                width=18, command=self.generate_key).pack(side=tk.RIGHT)
+        tk.Button(row4, text="Save Keys", font=self.mfont,
+                width=18, command=self.save_key).pack()
 
         self.sndrnd = audiorand.SndRnd()
         self.keylist = []
         self.libecc = ctypes.CDLL("../ecc256/libecc256.so")
-
-    def select_file(self):
-        fname = filedialog.asksaveasfilename(parent=self, title='Select Key File',
-                filetypes=(("secret key", "*.pri"), ("all files", "*.*")))
-        if len(fname) != 0:
-            self.fname_str.set(fname)
-
+        self.libecc.ecc_init()
 
     def save_key(self):
+        fname = filedialog.asksaveasfilename(parent=self, title='Save Key File',
+                filetypes=(("secret key", "*.pri"), ("all files", "*.*")))
+        if len(fname) == 0:
+            return
         mh = audiorand.hashlib.new('ripemd160')
         mh.update(self.passwd_str.get().encode('utf-8'))
         passwd = mh.digest()
         aes = AES.new(passwd[:16], AES.MODE_ECB)
-        ofp = open(self.fname_str.get(), 'wb')
+        ofp = open(fname, 'wb')
         for keystr in self.keylist:
             appstr = self.sndrnd.ecc256_random(1)
-            plain = keystr + appstr[:12]
+            plain = keystr[0] + appstr[:12]
             crc32 = self.libecc.crc32(plain, len(plain))
             if (crc32 < 0):
                 crc32 += 2**32
