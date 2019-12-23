@@ -10,9 +10,22 @@ import audiorand
 import ctypes
 
 class KeyFile(tk.Frame):
+    def append_key(self, keystr):
+        b64key = b'0' + audiorand.bin2str_b64(keystr)
+        ecckey = ctypes.create_string_buffer(b'\000', 96)
+        self.libecc.ecc_key_import_str(ecckey, b64key)
+        pubkey = ctypes.create_string_buffer(b'\000', 48)
+        self.libecc.ecc_key_export_str(pubkey, 48, ecckey, 0x7e)
+        pubkey = bytes(pubkey).decode('utf-8')
+        pkeyhash = ctypes.create_string_buffer(b'\000', 48)
+        self.libecc.ecc_key_hash_str(pkeyhash, 48, ecckey)
+        pkeyhash = bytes(pkeyhash).decode('utf-8')
+        self.keylist.append((keystr, pubkey, pkeyhash))
+        print(pubkey, '---', pkeyhash)
+
     def generate_key(self):
         keystr = self.sndrnd.ecc256_random(5)
-        self.keylist.append(keystr)
+        self.append_key(keystr)
         print(audiorand.bin2str_b64(keystr))
 
     def load_key(self):
@@ -32,19 +45,11 @@ class KeyFile(tk.Frame):
             crc32 = self.libecc.crc32(pla, len(pla))
             if crc32 != 0:
                 print("Invalid Pass Word!")
-                cip = ifp.read(48)
-                continue
+                ifp.close()
+                self.keylist = []
+                return
             keystr = pla[:32]
-            b64key = b'0' + audiorand.bin2str_b64(keystr)
-            ecckey = ctypes.create_string_buffer(b'\000', 96)
-            self.libecc.ecc_key_import_str(ecckey, b64key)
-            pubkey = ctypes.create_string_buffer(b'\000', 48)
-            self.libecc.ecc_key_export_str(pubkey, 48, ecckey, 0x7e)
-            pubkey = bytes(pubkey).decode('utf-8')
-            pkeyhash = ctypes.create_string_buffer(b'\000', 48)
-            self.libecc.ecc_key_hash_str(pkeyhash, 32, ecckey)
-            pkeyhash = bytes(pkeyhash).decode('utf-8')
-            self.keylist.append((keystr, pubkey, pkeyhash))
+            self.append_key(keystr)
             cip = ifp.read(48)
         ifp.close()
 
@@ -106,6 +111,7 @@ class KeyFile(tk.Frame):
             plain += crc32.to_bytes(4, 'big')
             scrtext = aes.encrypt(plain)
             ofp.write(scrtext)
+            print(keystr[1], '---', keystr[2])
         ofp.close()
 
     def mexit(self):
