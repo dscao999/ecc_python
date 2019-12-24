@@ -4,10 +4,13 @@ import os
 import sys
 import tkinter as tk
 import tkinter.filedialog as filedialog
+import tkinter.messagebox as mesgbox
 from Crypto.Cipher import AES
 import Crypto.Random as random
 import audiorand
 import ctypes
+
+mfont = ('courier', 16, 'bold')
 
 class SList(tk.Frame):
     def clearlist(self):
@@ -18,7 +21,6 @@ class SList(tk.Frame):
         super().__init__(parent)
         self.pack(expand=tk.YES, fill=tk.BOTH);
 
-        mfont = ('courier', 16, 'bold')
         f1 = tk.Frame(self)
         f1.pack(side=tk.TOP, expand=tk.YES, fill=tk.BOTH)
         f2 = tk.Frame(self)
@@ -41,7 +43,7 @@ class SList(tk.Frame):
         self.lbox = lbox
 
         sbar = tk.Scrollbar(f2_r)
-        hbox = tk.Listbox(f2_r, relief=tk.SUNKEN, font=mfont, width=46)
+        hbox = tk.Listbox(f2_r, relief=tk.SUNKEN, font=mfont, width=32)
         sbar.config(command=hbox.yview)
         hbox.config(yscrollcommand=sbar.set)
         sbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -87,7 +89,7 @@ class KeyFile(tk.Frame):
             pla = aes.decrypt(cip)
             crc32 = self.libecc.crc32(pla, len(pla))
             if crc32 != 0:
-                print("Invalid Pass Word!")
+                mesgbox.showerror("Error", "Invalid Password")
                 ifp.close()
                 self.keylist = []
                 return
@@ -98,7 +100,6 @@ class KeyFile(tk.Frame):
 
     def __init__(self, parent=None, fname=None, width=32):
         super().__init__(parent)
-        mfont = ('courier', 16, 'bold')
         self.pack(side=tk.TOP, expand=tk.YES, fill=tk.BOTH)
 
         f1 = tk.Frame(self)
@@ -121,6 +122,7 @@ class KeyFile(tk.Frame):
         passtext.config(font=mfont)
         passtext.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
 
+
         row4 = tk.Frame(f1_2)
         row4.pack(side=tk.BOTTOM, expand=tk.YES, fill=tk.X)
         tk.Button(row4, text="Load Keys", font=mfont,
@@ -130,6 +132,8 @@ class KeyFile(tk.Frame):
         tk.Button(row4, text="Save Keys", font=mfont,
                 width=18, command=self.save_key).pack()
 
+        separator = tk.Frame(f2, height=8, bg='black', bd=2, relief=tk.SUNKEN)
+        separator.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
         self.publist = SList(f2)
 
         self.sndrnd = audiorand.SndRnd()
