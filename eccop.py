@@ -12,6 +12,7 @@ import ctypes
 
 mfont = ('courier', 16, 'bold')
 
+
 class SList(tk.Frame):
     def clearlist(self):
         self.lbox.delete(0, tk.END)
@@ -71,6 +72,7 @@ class KeyFile(tk.Frame):
     def generate_key(self):
         keystr = self.sndrnd.ecc256_random(5)
         self.append_key(keystr)
+        self.keymod = 1
 
     def load_key(self):
         fname = filedialog.askopenfilename(parent=self, title='Load Key File',
@@ -78,6 +80,7 @@ class KeyFile(tk.Frame):
         if len(fname) == 0:
             return
         self.keylist = []
+        self.keymod = 0
         self.publist.clearlist()
         mh = audiorand.hashlib.new('ripemd160')
         mh.update(self.passwd_str.get().encode('utf-8'))
@@ -138,6 +141,7 @@ class KeyFile(tk.Frame):
 
         self.sndrnd = audiorand.SndRnd()
         self.keylist = []
+        self.keymod = 0
         self.libecc = ctypes.CDLL("../ecc256/libecc256.so")
         self.libecc.ecc_init()
 
@@ -161,22 +165,24 @@ class KeyFile(tk.Frame):
             scrtext = aes.encrypt(plain)
             ofp.write(scrtext)
         ofp.close()
+        self.keymod = 0
 
     def mexit(self):
-        print("I'm exiting!")
+        if self.keymod and mesgbox.askyesno("Confirm Action", \
+                "Keys has been modified, Save it?", master=self):
+            self.config(cursor="watch")
+            self.save_key()
+            self.config(cursor="")
         sys.exit()
-
-root = tk.Tk()
-root.title(sys.argv[0])
 
 fname=os.getcwd() + '/ecc256_key.pri'
 if len(sys.argv) > 1:
     fname = sys.argv[1]
 
-width = len(fname)
-if (width < 32): width = 32
+root = tk.Tk()
+root.title(sys.argv[0])
 
-keyfile = KeyFile(root, fname, width)
+keyfile = KeyFile(root, fname)
 
 root.protocol('WM_DELETE_WINDOW', keyfile.mexit)
 
