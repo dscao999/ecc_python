@@ -13,6 +13,30 @@ import ctypes
 mfont = ('courier', 16, 'bold')
 
 
+class CopyListbox(tk.Listbox):
+    def __init__(self, parent, *args, **kwargs):
+        super().__init__(parent, *args, **kwargs)
+        self.popup_menu = tk.Menu(self, tearoff=0)
+        self.popup_menu.add_command(label='Copy', command=self.cpsel)
+        self.popup_menu.add_command(label='Delete', command=self.delsel)
+
+        self.bind("<Button-3>", self.popup)
+
+    def popup(self, event):
+        try:
+            self.popup_menu.tk_popup(event.x_root, event.y_root, 0)
+        finally:
+            pass
+
+    def delsel(self):
+        print("Will Delete: ", self.curselection()[0])
+
+    def cpsel(self):
+        self.clipboard_clear()
+        idx = self.curselection()[0]
+        self.clipboard_append(self.get(idx))
+
+
 class SList(tk.Frame):
     def clearlist(self):
         self.lbox.delete(0, tk.END)
@@ -36,7 +60,7 @@ class SList(tk.Frame):
         f2_r.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.BOTH)
 
         sbar = tk.Scrollbar(f2_l)
-        lbox = tk.Listbox(f2_l, relief=tk.SUNKEN, font=mfont, width=46)
+        lbox = CopyListbox(f2_l, relief=tk.SUNKEN, font=mfont, width=46)
         sbar.config(command=lbox.yview)
         lbox.config(yscrollcommand=sbar.set)
         sbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -44,7 +68,7 @@ class SList(tk.Frame):
         self.lbox = lbox
 
         sbar = tk.Scrollbar(f2_r)
-        hbox = tk.Listbox(f2_r, relief=tk.SUNKEN, font=mfont, width=32)
+        hbox = CopyListbox(f2_r, relief=tk.SUNKEN, font=mfont, width=32)
         sbar.config(command=hbox.yview)
         hbox.config(yscrollcommand=sbar.set)
         sbar.pack(side=tk.RIGHT, fill=tk.Y)
