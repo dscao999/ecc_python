@@ -196,15 +196,16 @@ class KeyFile(tk.Frame):
             self.config(cursor="")
         sys.exit()
 
-fname=os.getcwd() + '/ecc256_key.pri'
-if len(sys.argv) > 1:
-    fname = sys.argv[1]
+if __name__ == "__main__":
+    fname=os.getcwd() + '/ecc256_key.pri'
+    if len(sys.argv) > 1:
+        fname = sys.argv[1]
 
-root = tk.Tk()
-root.title(sys.argv[0])
+    root = tk.Tk()
+    root.title(sys.argv[0])
 
-keyfile = KeyFile(root, fname)
+    keyfile = KeyFile(root, fname)
 
-root.protocol('WM_DELETE_WINDOW', keyfile.mexit)
+    root.protocol('WM_DELETE_WINDOW', keyfile.mexit)
 
-root.mainloop()
+    root.mainloop()
