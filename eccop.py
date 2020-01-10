@@ -23,10 +23,7 @@ class CopyListbox(tk.Listbox):
         self.bind("<Button-3>", self.popup)
 
     def popup(self, event):
-        try:
-            self.popup_menu.tk_popup(event.x_root, event.y_root, 0)
-        finally:
-            pass
+        self.popup_menu.tk_popup(event.x_root, event.y_root, 0)
 
     def delsel(self):
         print("Will Delete: ", self.curselection()[0])
