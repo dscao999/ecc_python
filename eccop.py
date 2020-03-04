@@ -163,7 +163,7 @@ class KeyFile(tk.Frame):
         self.sndrnd = audiorand.SndRnd()
         self.keylist = []
         self.keymod = 0
-        self.libecc = ctypes.CDLL("../ecc256/libecc256.so")
+        self.libecc = ctypes.CDLL("../lib/libecc256.so")
         self.libecc.ecc_init()
 
     def save_key(self):
@@ -196,7 +196,37 @@ class KeyFile(tk.Frame):
             self.config(cursor="")
         sys.exit()
 
+
+class DropDown(tk.OptionMenu):
+    def __init__(self, parent, optlist, dv):
+        self.vari = tk.StringVar()
+        self.vari.set(optlist[dv])
+        super().__init__(parent, self.vari, *optlist)
+
+    def getv():
+        vstr = self.vari.get()
+        return vstr
+
+class TokenTX:
+    def __init__(self, master):
+        self.master = master
+        self.frame = tk.Frame(self.master)
+        label = tk.Label(self.frame, text="Not Implemented Yet", width=50, font=mfont)
+        label.pack(side=tk.TOP, expand=tk.YES, fill=tk.X);
+        self.quitbutton = tk.Button(self.frame, text='Quit', width=25, command=self.close_windows)
+        self.quitbutton.pack(side=tk.BOTTOM)
+        self.frame.pack()
+
+    def close_windows(self):
+        self.master.destroy()
+
+
 if __name__ == "__main__":
+    def ttransfer():
+        mylist = keyfile.keylist;
+        neww = tk.Toplevel(root)
+        token_op = TokenTX(neww)
+        
     fname=os.getcwd() + '/ecc256_key.pri'
     if len(sys.argv) > 1:
         fname = sys.argv[1]
@@ -204,8 +234,15 @@ if __name__ == "__main__":
     root = tk.Tk()
     root.title(sys.argv[0])
 
-    keyfile = KeyFile(root, fname)
+    fp1 = tk.Frame(root)
+    fp1.pack(side=tk.TOP, expand=tk.YES, fill=tk.X);
+    fp2 = tk.Frame(root)
+    fp2.pack(side=tk.BOTTOM, expand=tk.YES, fill=tk.X);
 
+    keyfile = KeyFile(fp1, fname)
+
+    tk.Button(fp2, text="Token Transfer", font=mfont,
+            width=25, command=ttransfer).pack(side=tk.LEFT)
     root.protocol('WM_DELETE_WINDOW', keyfile.mexit)
 
     root.mainloop()

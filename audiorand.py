@@ -16,6 +16,7 @@ class SndRnd:
         self.phone = sd.query_devices(kind='input')
         if len(self.phone) == 0:
             print("No Microphone Device")
+            sys.exit()
         self.rawsm = sd.RawInputStream(device=self.phone['name'], dtype='int16')
         self.hash = hashlib.new('sha256')
 
