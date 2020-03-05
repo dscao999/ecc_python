@@ -9,6 +9,7 @@ from Crypto.Cipher import AES
 import Crypto.Random as random
 import audiorand
 import ctypes
+import TokenTX
 
 mfont = ('courier', 16, 'bold')
 
@@ -197,35 +198,10 @@ class KeyFile(tk.Frame):
         sys.exit()
 
 
-class DropDown(tk.OptionMenu):
-    def __init__(self, parent, optlist, dv):
-        self.vari = tk.StringVar()
-        self.vari.set(optlist[dv])
-        super().__init__(parent, self.vari, *optlist)
-
-    def getv():
-        vstr = self.vari.get()
-        return vstr
-
-class TokenTX:
-    def __init__(self, master):
-        self.master = master
-        self.frame = tk.Frame(self.master)
-        label = tk.Label(self.frame, text="Not Implemented Yet", width=50, font=mfont)
-        label.pack(side=tk.TOP, expand=tk.YES, fill=tk.X);
-        self.quitbutton = tk.Button(self.frame, text='Quit', width=25, command=self.close_windows)
-        self.quitbutton.pack(side=tk.BOTTOM)
-        self.frame.pack()
-
-    def close_windows(self):
-        self.master.destroy()
-
-
 if __name__ == "__main__":
     def ttransfer():
-        mylist = keyfile.keylist;
         neww = tk.Toplevel(root)
-        token_op = TokenTX(neww)
+        token_op = TokenTX.TokenTX(neww, keyfile.keylist, mfont)
         
     fname=os.getcwd() + '/ecc256_key.pri'
     if len(sys.argv) > 1:
