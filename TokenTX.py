@@ -12,12 +12,11 @@ mariadb_config = {
 tables = ["vendors", "etoken_cat", "etoken_type", "sales"]
 
 class DropDown(tk.OptionMenu):
-    def __init__(self, parent, optlist, dv):
+    def __init__(self, parent, optlist):
         self.vari = tk.StringVar()
-        self.vari.set(optlist[dv]['name'])
-        self.optlist = optlist
+        self.vari.set(optlist[0]['name'])
         itmlist = []
-        for itm in self.optlist:
+        for itm in optlist:
             itmlist.append(itm['name'])
         super().__init__(parent, self.vari, *itmlist)
 
@@ -25,28 +24,24 @@ class DropDown(tk.OptionMenu):
         return self.vari.get()
 
     def refresh_option(self, optlist):
-        self.optlist = optlist
         self['menu'].delete(0, 'end')
-        for itm in self.optlist:
+        for itm in optlist:
             choice = itm['name']
             self['menu'].add_command(label=choice, command=tk._setit(self.vari, choice))
-        self.vari.set(self.optlist[0]['name'])
+        self.vari.set(optlist[0]['name'])
 
+class TokenID:
+    def __init__(self, parent, mfont):
+        frame = tk.Frame(parent)
+        frame.pack(side=tk.TOP, expand=tk.YES, fill=tk.X)
 
-class TokenTX:
-    def __init__(self, master, keylist, mfont):
-        self.keys = keylist
-        self.master = master
-        self.frame = tk.Frame(self.master)
-        self.mfont = mfont
-        self.idx = 0
-        label = tk.Label(self.frame, text="Select Token Type", font=mfont, width=80)
+        label = tk.Label(frame, text="Select Token Type", font=mfont, width=80)
         label.pack(side=tk.TOP, expand=tk.YES, fill=tk.X)
-        lfrm = tk.Frame(self.master)
-        lfrm.pack(side=tk.BOTTOM, expand=tk.YES, fill=tk.X)
+        optfrm = tk.Frame(frame)
+        optfrm.pack(side=tk.BOTTOM, expand=tk.YES, fill=tk.X)
 
-        optfrm = tk.Frame(lfrm)
-        optfrm.pack(side=tk.TOP, expand=tk.YES, fill=tk.X)
+        sep = tk.Frame(optfrm, height=8, bg='black', bd=2, relief=tk.SUNKEN)
+        sep.pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=5)
 
         self.cnx = mariadb.connect(**mariadb_config)
         self.cursor = self.cnx.cursor()
@@ -55,41 +50,48 @@ class TokenTX:
         self.vendors = []
         for (vid, name, descp) in self.cursor:
             self.vendors.append({'id': vid, 'name': name, 'desc': descp})
-        self.vendrop = DropDown(optfrm, self.vendors, self.idx)
+        self.vendrop = DropDown(optfrm, self.vendors)
 
         self.cat_query = ("SELECT id, name, descp from etoken_cat where vendor_id = %(vendor_id)s")
-        vid = self.vendors[self.idx]['id']
+        vid = self.vendors[0]['id']
         self.cursor.execute(self.cat_query, {'vendor_id': vid})
         self.cats = []
         for (catid, name, descp) in self.cursor:
             self.cats.append({'id': catid, 'name': name, 'desc': descp})
-        self.catdrop = DropDown(optfrm, self.cats, self.idx)
+        self.catdrop = DropDown(optfrm, self.cats)
 
         self.tok_query = ("SELECT * from etoken_type where cat_id = %(cat_id)s")
-        cat_id = self.cats[self.idx]['id']
+        cat_id = self.cats[0]['id']
         self.cursor.execute(self.tok_query, {'cat_id': cat_id})
         self.toks = []
         for (tokid, name, descp, catid) in self.cursor:
             self.toks.append({'id': tokid, 'name': name, 'desc': descp})
-        self.tokdrop = DropDown(optfrm, self.toks, self.idx)
+        self.tokdrop = DropDown(optfrm, self.toks)
 
-        self.vendrop.config(font=self.mfont, width=16)
+        self.vendrop.config(font=mfont, width=16)
         self.vendrop.pack(side=tk.LEFT)
-        self.catdrop.config(font=self.mfont, width=16)
-        self.catdrop.pack()
-        self.tokdrop.config(font=self.mfont, width=16)
+        self.tokdrop.config(font=mfont, width=16)
         self.tokdrop.pack(side=tk.RIGHT)
-
-        self.quitbutton = tk.Button(lfrm, text='Quit', width=25, command=self.close_windows)
-        self.quitbutton.pack(side=tk.BOTTOM)
-
-        self.frame.pack()
+        self.catdrop.config(font=mfont, width=16)
+        self.catdrop.pack()
 
         self.vendrop.vari.trace("w", self.refresh_cat)
         self.catdrop.vari.trace("w", self.refresh_tok)
 
     def refresh_cat(self, *args):
-        self.catdrop['menu'].delete(0, 'end')
+        vname = self.vendrop.get_choice()
+        vid = 0
+        for ent in self.vendors:
+            if ent['name'] == vname:
+                vid = ent['id']
+                break
+        print("VEN ID: {}".format(vid))
+
+        self.cursor.execute(self.cat_query, {'vendor_id': vid})
+        self.cats = []
+        for (catid, name, descp) in self.cursor:
+            self.cats.append({'id': catid, 'name': name, 'desc': descp})
+        self.catdrop.refresh_option(self.cats)
 
     def refresh_tok(self, *args):
         name = self.catdrop.get_choice()
@@ -106,10 +108,32 @@ class TokenTX:
             self.toks.append({'id': tokid, 'name': name, 'desc': descp})
         self.tokdrop.refresh_option(self.toks)
 
-    def close_windows(self):
-        self.cursor.close()
-        self.cnx.close()
-        self.master.destroy()
+    def get_token_id(self):
+        tokname = self.tokdrop.get_choice()
+        for ent in self.toks:
+            if ent['name'] == tokname:
+                return ent['id']
+        return 0
+
+
+class TokenTX:
+    def __init__(self, parent, keylist, mfont):
+        self.keys = keylist
+        self.parent = parent
+
+        self.tokid = TokenID(parent, mfont)
+
+        lfrm = tk.Frame(parent)
+        lfrm.pack(side=tk.BOTTOM, fill=tk.X, expand=tk.YES)
+
+        self.sbut = tk.Button(lfrm, text='Check', width=25, command=self.search_tokens)
+        self.sbut.config(font=mfont)
+        self.sbut.pack(side=tk.LEFT)
+
+    def search_tokens(self):
+        token = self.tokid.get_token_id()
+        print("Current Token ID: {}".format(token))
+
 
 def show_vid():
     vid = mydrop.getv()
@@ -126,10 +150,10 @@ if __name__ == "__main__":
     cursor.execute(vendor_query)
     mylist = []
     for (vid, name, descp) in cursor:
-        mylist.append(name)
+        mylist.append({'id': vid, 'name': name, 'desc': descp})
     cursor.close()
 
-    mydrop = DropDown(root, mylist, 0);
+    mydrop = DropDown(root, mylist);
     mydrop.config(width=20, font=mfont);
     mydrop.pack(side=tk.TOP)
 
