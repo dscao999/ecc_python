@@ -30,6 +30,10 @@ class PasteEntry(tk.Entry):
         self.popup.tk_popup(event.x_root, event.y_root, 0)
 
     def paste(self):
-        item = self.clipboard_get()
-        self.delete(0, tk.END)
-        self.insert(tk.END, item[0:28])
+        try:
+            item = self.clipboard_get()
+        except:
+            item = ''
+        if len(item) > 0:
+            self.delete(0, tk.END)
+            self.insert(tk.END, item[0:28])

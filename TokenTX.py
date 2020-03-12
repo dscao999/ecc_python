@@ -3,6 +3,7 @@ import tkinter.messagebox as mesgbox
 import sys
 import mysql.connector as mariadb
 import CopyListbox
+from tkinter import simpledialog
 
 mariadb_config = {
         'user': 'dscao',
@@ -119,6 +120,7 @@ class TokenTX:
         self.keys = keylist
         self.parent = parent
         self.asset = 0
+        self.mfont = mfont
 
         self.cnx = mariadb.connect(**mariadb_config)
         self.cursor = self.cnx.cursor()
@@ -126,7 +128,7 @@ class TokenTX:
         self.tokid = TokenID(parent, self.cursor, mfont)
 
         mfrm = tk.Frame(parent)
-        mfrm.pack(side=tk.BOTTOM, fill=tk.X, expand=tk.YES)
+        mfrm.pack(side=tk.TOP, fill=tk.X, expand=tk.YES)
 
         ufrm = tk.Frame(mfrm)
         ufrm.pack(side=tk.TOP, fill=tk.X, expand=tk.YES)
@@ -170,6 +172,15 @@ class TokenTX:
         rec_entry.config(font=mfont)
         rec_entry.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
 
+        mfrm = tk.Frame(parent)
+        mfrm.pack(side=tk.BOTTOM, fill=tk.X, expand=tk.YES)
+        tk.Label(mfrm, text="Use Key:", font=mfont, width=16).pack(side=tk.LEFT)
+        self.usekey = tk.StringVar()
+        self.usekey.set('')
+        rec_entry = CopyListbox.PasteEntry(mfrm, textvariable=self.usekey, width=30)
+        rec_entry.config(font=mfont)
+        rec_entry.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
+
     def transfer_token(self):
         token = self.tokid.get_token_id()
         value = int(self.value_str.get())
@@ -196,7 +207,10 @@ class TokenTX:
         token = self.tokid.get_token_id()
         value = int(self.value_str.get())
         recipient = self.recipient.get()
-        print("Will create Token ID: {}, number: {} for {}".format(token, value, recipient))
+        usekey = self.usekey.get()
+        if value > 0 and len(recipient) == 28 and len(usekey) == 28:
+            print("Will create Token ID: {}, number: {} for {}".format(token, value, recipient))
+            print("Will use key: {}".format(usekey))
 
 
 def show_vid():
