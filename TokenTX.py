@@ -2,6 +2,7 @@ import tkinter as tk
 import tkinter.messagebox as mesgbox
 import sys
 import mysql.connector as mariadb
+import CopyListbox
 
 mariadb_config = {
         'user': 'dscao',
@@ -31,7 +32,7 @@ class DropDown(tk.OptionMenu):
         self.vari.set(optlist[0]['name'])
 
 class TokenID:
-    def __init__(self, parent, mfont):
+    def __init__(self, parent, cursor, mfont):
         frame = tk.Frame(parent)
         frame.pack(side=tk.TOP, expand=tk.YES, fill=tk.X)
 
@@ -43,8 +44,7 @@ class TokenID:
         sep = tk.Frame(optfrm, height=8, bg='black', bd=2, relief=tk.SUNKEN)
         sep.pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=5)
 
-        self.cnx = mariadb.connect(**mariadb_config)
-        self.cursor = self.cnx.cursor()
+        self.cursor = cursor
         vendor_query = ("SELECT * from vendors")
         self.cursor.execute(vendor_query)
         self.vendors = []
@@ -85,7 +85,6 @@ class TokenID:
             if ent['name'] == vname:
                 vid = ent['id']
                 break
-        print("VEN ID: {}".format(vid))
 
         self.cursor.execute(self.cat_query, {'vendor_id': vid})
         self.cats = []
@@ -100,7 +99,6 @@ class TokenID:
             if ent['name'] == name:
                 catid = ent['id']
                 break
-        print("CAT ID: {}".format(catid))
 
         self.cursor.execute(self.tok_query, {'cat_id': catid})
         self.toks = []
@@ -120,19 +118,85 @@ class TokenTX:
     def __init__(self, parent, keylist, mfont):
         self.keys = keylist
         self.parent = parent
+        self.asset = 0
 
-        self.tokid = TokenID(parent, mfont)
+        self.cnx = mariadb.connect(**mariadb_config)
+        self.cursor = self.cnx.cursor()
 
-        lfrm = tk.Frame(parent)
+        self.tokid = TokenID(parent, self.cursor, mfont)
+
+        mfrm = tk.Frame(parent)
+        mfrm.pack(side=tk.BOTTOM, fill=tk.X, expand=tk.YES)
+
+        ufrm = tk.Frame(mfrm)
+        ufrm.pack(side=tk.TOP, fill=tk.X, expand=tk.YES)
+
+        sbut = tk.Button(ufrm, text='Check', width=25, command=self.search_tokens)
+        sbut.config(font=mfont)
+        sbut.pack(side=tk.TOP)
+
+        sbar = tk.Scrollbar(ufrm)
+        self.v_lbox = CopyListbox.CopyListbox(ufrm, relief=tk.SUNKEN, font=mfont, width=46)
+        sbar.config(command=self.v_lbox.yview)
+        self.v_lbox.config(yscrollcommand=sbar.set)
+        sbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.v_lbox.pack(side=tk.BOTTOM, expand=tk.YES, fill=tk.BOTH)
+
+        lfrm = tk.Frame(mfrm)
         lfrm.pack(side=tk.BOTTOM, fill=tk.X, expand=tk.YES)
 
-        self.sbut = tk.Button(lfrm, text='Check', width=25, command=self.search_tokens)
-        self.sbut.config(font=mfont)
-        self.sbut.pack(side=tk.LEFT)
+        llfrm = tk.Frame(lfrm)
+        llfrm.pack(side=tk.TOP, fill=tk.X, expand=tk.YES)
+
+        tbut = tk.Button(llfrm, text='Transfer', width=25, command=self.transfer_token)
+        tbut.config(font=mfont)
+        tbut.pack(side=tk.LEFT)
+
+        cbut = tk.Button(llfrm, text='Create', width=25, command=self.create_token)
+        cbut.config(font=mfont)
+        cbut.pack(side=tk.RIGHT)
+        self.value_str = tk.StringVar()
+        self.value_str.set('1000')
+        value_entry = tk.Entry(llfrm, textvariable=self.value_str, width=16)
+        value_entry.config(font=mfont)
+        value_entry.pack()
+
+        ulfrm = tk.Frame(lfrm)
+        ulfrm.pack(side=tk.BOTTOM, fill=tk.X, expand=tk.YES)
+        tk.Label(ulfrm, text="Transfer to:", font=mfont, width=16).pack(side=tk.LEFT)
+        self.recipient = tk.StringVar()
+        self.recipient.set('')
+        rec_entry = CopyListbox.PasteEntry(ulfrm, textvariable=self.recipient, width=30)
+        rec_entry.config(font=mfont)
+        rec_entry.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
+
+    def transfer_token(self):
+        token = self.tokid.get_token_id()
+        value = int(self.value_str.get())
+        print("Will transfer Token ID: {}, number: {}".format(token, value))
 
     def search_tokens(self):
+        self.v_lbox.delete(0, tk.END)
         token = self.tokid.get_token_id()
-        print("Current Token ID: {}".format(token))
+        selsql = "select value from utxo where " \
+                "etoken_id = %(etoken_id)s and keyhash = %(keyhash)s"
+        self.asset = 0
+        print("Number of Keys: {}".format(len(self.keys)))
+        for keytup in self.keys:
+            keyhash = keytup[2]
+            self.cursor.execute(selsql, {"etoken_id": token, "keyhash": keyhash})
+            for value in self.cursor:
+                item = "Key: {} Token ID: {} Value: {}".format(keyhash, etoken_id, value)
+                print(item)
+                print(type(value))
+                self.v_lbox.insert(tk.END, item)
+                self.asset += value
+
+    def create_token(self):
+        token = self.tokid.get_token_id()
+        value = int(self.value_str.get())
+        recipient = self.recipient.get()
+        print("Will create Token ID: {}, number: {} for {}".format(token, value, recipient))
 
 
 def show_vid():
