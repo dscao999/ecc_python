@@ -211,6 +211,9 @@ class TokenTX:
         if value > 0 and len(recipient) == 28 and len(usekey) == 28:
             print("Will create Token ID: {}, number: {} for {}".format(token, value, recipient))
             print("Will use key: {}".format(usekey))
+        for trikey in self.keys:
+            if trikey[2] == usekey:
+                print("Secrete key: {}, length: {}".format(type(trikey[0]), len(trikey[0])))
 
 
 def show_vid():

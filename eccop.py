@@ -64,10 +64,10 @@ class KeyFile(tk.Frame):
         self.libecc.ecc_key_import_str(ecckey, b64key)
         pubkey = ctypes.create_string_buffer(b'\000', 48)
         self.libecc.ecc_key_export_str(pubkey, 48, ecckey, 0x7e)
-        pubkey = bytes(pubkey).decode('utf-8')
+        pubkey = bytes(pubkey).decode('utf-8').strip("\000")
         pkeyhash = ctypes.create_string_buffer(b'\000', 48)
         self.libecc.ecc_key_hash_str(pkeyhash, 48, ecckey)
-        pkeyhash = bytes(pkeyhash).decode('utf-8')
+        pkeyhash = bytes(pkeyhash).decode('utf-8').strip("\000")
         self.keylist.append((keystr, pubkey, pkeyhash))
         self.publist.append_item(pubkey, pkeyhash)
 

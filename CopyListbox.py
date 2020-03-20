@@ -36,4 +36,4 @@ class PasteEntry(tk.Entry):
             item = ''
         if len(item) > 0:
             self.delete(0, tk.END)
-            self.insert(tk.END, item[0:28])
+            self.insert(tk.END, item)
