@@ -17,7 +17,6 @@ mfont = ('courier', 16, 'bold')
 
 class SList(tk.Frame):
     def clearlist(self):
-        self.lbox.delete(0, tk.END)
         self.hbox.delete(0, tk.END)
 
     def __init__(self, parent=None):
@@ -29,32 +28,17 @@ class SList(tk.Frame):
         f2 = tk.Frame(self)
         f2.pack(side=tk.BOTTOM, expand=tk.YES, fill=tk.BOTH)
 
-        tk.Label(f1, text="Public Keys:", font=mfont, width=32).pack(side=tk.LEFT)
-        tk.Label(f1, text="Public Key Hash:", font=mfont, width=32).pack(side=tk.RIGHT)
+        tk.Label(f1, text="Public Key Hash:", font=mfont, width=32).pack(side=tk.TOP)
 
-        f2_l = tk.Frame(f2)
-        f2_r = tk.Frame(f2)
-        f2_l.pack(side=tk.LEFT, expand=tk.YES, fill=tk.BOTH)
-        f2_r.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.BOTH)
-
-        sbar = tk.Scrollbar(f2_l)
-        lbox = CopyListbox.CopyListbox(f2_l, relief=tk.SUNKEN, font=mfont, width=46)
-        sbar.config(command=lbox.yview)
-        lbox.config(yscrollcommand=sbar.set)
-        sbar.pack(side=tk.RIGHT, fill=tk.Y)
-        lbox.pack(side=tk.LEFT, expand=tk.YES, fill=tk.BOTH)
-        self.lbox = lbox
-
-        sbar = tk.Scrollbar(f2_r)
-        hbox = CopyListbox.CopyListbox(f2_r, relief=tk.SUNKEN, font=mfont, width=32)
+        sbar = tk.Scrollbar(f2)
+        hbox = CopyListbox.CopyListbox(f2, relief=tk.SUNKEN, font=mfont, width=32)
         sbar.config(command=hbox.yview)
         hbox.config(yscrollcommand=sbar.set)
         sbar.pack(side=tk.RIGHT, fill=tk.Y)
         hbox.pack(side=tk.LEFT, expand=tk.YES, fill=tk.BOTH)
         self.hbox = hbox
 
-    def append_item(self, pub, pubhash):
-        self.lbox.insert(tk.END, pub)
+    def append_item(self, pubhash):
         self.hbox.insert(tk.END, pubhash)
 
 class KeyFile(tk.Frame):
@@ -62,14 +46,11 @@ class KeyFile(tk.Frame):
         b64key = b'0' + audiorand.bin2str_b64(keystr)
         ecckey = ctypes.create_string_buffer(b'\000', 96)
         self.libecc.ecc_key_import_str(ecckey, b64key)
-        pubkey = ctypes.create_string_buffer(b'\000', 48)
-        self.libecc.ecc_key_export_str(pubkey, 48, ecckey, 0x7e)
-        pubkey = bytes(pubkey).decode('utf-8').strip("\000")
         pkeyhash = ctypes.create_string_buffer(b'\000', 48)
         self.libecc.ecc_key_hash_str(pkeyhash, 48, ecckey)
         pkeyhash = bytes(pkeyhash).decode('utf-8').strip("\000")
-        self.keylist.append((keystr, pubkey, pkeyhash))
-        self.publist.append_item(pubkey, pkeyhash)
+        self.keylist.append((keystr, pkeyhash))
+        self.publist.append_item(pkeyhash)
 
     def generate_key(self):
         keystr = self.sndrnd.ecc256_random(5)

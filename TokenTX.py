@@ -4,6 +4,7 @@ import sys
 import mysql.connector as mariadb
 import CopyListbox
 from tkinter import simpledialog
+import audiorand
 
 mariadb_config = {
         'user': 'dscao',
@@ -194,7 +195,7 @@ class TokenTX:
         self.asset = 0
         print("Number of Keys: {}".format(len(self.keys)))
         for keytup in self.keys:
-            keyhash = keytup[2]
+            keyhash = keytup[1]
             self.cursor.execute(selsql, {"etoken_id": token, "keyhash": keyhash})
             for value in self.cursor:
                 item = "Key: {} Token ID: {} Value: {}".format(keyhash, etoken_id, value)
@@ -212,8 +213,9 @@ class TokenTX:
             print("Will create Token ID: {}, number: {} for {}".format(token, value, recipient))
             print("Will use key: {}".format(usekey))
         for trikey in self.keys:
-            if trikey[2] == usekey:
+            if trikey[1] == usekey:
                 print("Secrete key: {}, length: {}".format(type(trikey[0]), len(trikey[0])))
+                print("0{}".format(audiorand.bin2str_b64(trikey[0]).decode('utf-8')));
 
 
 def show_vid():
