@@ -125,7 +125,7 @@ class KeyFile(tk.Frame):
         self.sndrnd = audiorand.SndRnd()
         self.keylist = []
         self.keymod = 0
-        self.libecc = ctypes.CDLL("../lib/libecc256.so")
+        self.libecc = ctypes.CDLL("../lib/libtoktx.so")
         self.libecc.ecc_init()
 
     def save_key(self):
