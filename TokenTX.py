@@ -5,6 +5,7 @@ import mysql.connector as mariadb
 import CopyListbox
 from tkinter import simpledialog
 import audiorand
+import ctypes
 
 mariadb_config = {
         'user': 'dscao',
@@ -206,17 +207,18 @@ class TokenTX:
 
     def create_token(self):
         token = self.tokid.get_token_id()
+        print("token type: {}".format(type(token)))
         value = int(self.value_str.get())
-        recipient = self.recipient.get()
+        recipient = self.recipient.get().encode('utf-8')
         usekey = self.usekey.get()
         if value > 0 and len(recipient) == 28 and len(usekey) == 28:
             print("Will create Token ID: {}, number: {} for {}".format(token, value, recipient))
             print("Will use key: {}".format(usekey))
         for trikey in self.keys:
             if trikey[1] == usekey:
-                print("Secrete key: {}, length: {}".format(type(trikey[0]), len(trikey[0])))
-                print("0{}".format(audiorand.bin2str_b64(trikey[0]).decode('utf-8')));
-
+                mkey = b'0' + audiorand.bin2str_b64(trikey[0])
+                txrec = ctypes.create_string_buffer(2048);
+                print("private key: {} type: {}, ctypes buffer type: {}".format(mkey.decode('utf-8'), type(mkey), type(txrec)))
 
 def show_vid():
     vid = mydrop.getv()

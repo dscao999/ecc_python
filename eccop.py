@@ -14,7 +14,6 @@ import CopyListbox
 
 mfont = ('courier', 16, 'bold')
 
-
 class SList(tk.Frame):
     def clearlist(self):
         self.hbox.delete(0, tk.END)
@@ -41,48 +40,101 @@ class SList(tk.Frame):
     def append_item(self, pubhash):
         self.hbox.insert(tk.END, pubhash)
 
-class KeyFile(tk.Frame):
+class GlobParam:
+    def __init__(self, cfg_name):
+        self.libtoktx = ctypes.CDLL("../lib/libtoktx.so")
+        self.libtoktx.ecc_init()
+        if self.libtoktx.alsa_init('') < 0:
+            printf("Cannot Initialize microphone, Exiting...")
+            sys.exit(1)
+        self.keylist = []
+        self.keymod = 0
+        self.mfont = ('courier', 16, 'bold')
+
     def append_key(self, keystr):
         b64key = b'0' + audiorand.bin2str_b64(keystr)
         ecckey = ctypes.create_string_buffer(b'\000', 96)
-        self.libecc.ecc_key_import_str(ecckey, b64key)
+        self.libtoktx.ecc_key_import_str(ecckey, b64key)
         pkeyhash = ctypes.create_string_buffer(b'\000', 48)
-        self.libecc.ecc_key_hash_str(pkeyhash, 48, ecckey)
+        self.libtoktx.ecc_key_hash_str(pkeyhash, 48, ecckey)
         pkeyhash = bytes(pkeyhash).decode('utf-8').strip("\000")
         self.keylist.append((keystr, pkeyhash))
+        self.keymod = 1
+        return pkeyhash
+    
+    def generate_key(self):
+        keystr = bytes(ctypes.create_string_buffer(32))
+        if self.libtoktx.noise_random(keystr, 5) < 0:
+            print("Cannot generate a random")
+            return None
+        else:
+            return self.append_key(keystr)
+
+    def clear_key(self):
+        self.keylist.clear()
+        self.keymod = 0
+
+    def save_key(self, fname, passwd):
+        appstr = ctypes.create_string_buffer(32)
+        aes = AES.new(passwd, AES.MODE_ECB)
+        ofp = open(fname, 'wb')
+        for keystr in self.keylist:
+            self.libtoktx.noise_random(appstr, 1)
+            pad = bytes(appstr[:12])
+            plain = keystr[0] + pad
+            crc32 = self.libtoktx.crc32(plain, len(plain))
+            if (crc32 < 0):
+                crc32 += 2**32
+            plain += crc32.to_bytes(4, 'big')
+            scrtext = aes.encrypt(plain)
+            ofp.write(scrtext)
+        ofp.close()
+        self.keymod = 0
+
+    def load_key(self, fname, passwd):
+        self.clear_key()
+        aes = AES.new(passwd, AES.MODE_ECB)
+        ifp = open(fname, 'rb')
+        cip = ifp.read(48)
+        khashs = []
+        while cip:
+            pla = aes.decrypt(cip)
+            crc32 = self.libtoktx.crc32(pla, len(pla))
+            if crc32 != 0:
+                mesgbox.showerror("Error", "Invalid Password")
+                ifp.close()
+                self.clear_key()
+                return khashs.clear()
+            keystr = pla[:32]
+            khashs.append(self.append_key(keystr))
+            cip = ifp.read(48)
+        ifp.close()
+        self.keymod = 0
+        return khashs
+
+class KeyFile(tk.Frame):
+    def append_key(self, keystr):
+        pkeyhash = self.glob.append_key(keystr)
         self.publist.append_item(pkeyhash)
 
     def generate_key(self):
-        keystr = self.sndrnd.ecc256_random(5)
-        self.append_key(keystr)
-        self.keymod = 1
+        khash = self.glob.generate_key()
+        if khash:
+            self.publist.append_item(khash)
 
     def load_key(self):
         fname = filedialog.askopenfilename(parent=self, title='Load Key File',
                 filetypes=(("secret key", "*.pri"), ("all files", "*.*")))
         if len(fname) == 0:
             return
-        self.keylist.clear()
-        self.keymod = 0
-        self.publist.clearlist()
         mh = audiorand.hashlib.new('ripemd160')
         mh.update(self.passwd_str.get().encode('utf-8'))
         passwd = mh.digest()
-        aes = AES.new(passwd[:16], AES.MODE_ECB)
-        ifp = open(fname, 'rb')
-        cip = ifp.read(48)
-        while cip:
-            pla = aes.decrypt(cip)
-            crc32 = self.libecc.crc32(pla, len(pla))
-            if crc32 != 0:
-                mesgbox.showerror("Error", "Invalid Password")
-                ifp.close()
-                self.keylist.clear()
-                return
-            keystr = pla[:32]
-            self.append_key(keystr)
-            cip = ifp.read(48)
-        ifp.close()
+        khashs = self.glob.load_key(fname, passwd[:16])
+        if khashs:
+            self.publist.clearlist()
+            for pkhash in khashs:
+                self.publist.append_item(pkhash)
 
     def __init__(self, parent=None, fname=None, width=32):
         super().__init__(parent)
@@ -121,12 +173,7 @@ class KeyFile(tk.Frame):
         separator = tk.Frame(f2, height=8, bg='black', bd=2, relief=tk.SUNKEN)
         separator.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
         self.publist = SList(f2)
-
-        self.sndrnd = audiorand.SndRnd()
-        self.keylist = []
-        self.keymod = 0
-        self.libecc = ctypes.CDLL("../lib/libtoktx.so")
-        self.libecc.ecc_init()
+        self.glob = GlobParam('')
 
     def save_key(self):
         fname = filedialog.asksaveasfilename(parent=self, title='Save Key File',
@@ -136,33 +183,21 @@ class KeyFile(tk.Frame):
         mh = audiorand.hashlib.new('ripemd160')
         mh.update(self.passwd_str.get().encode('utf-8'))
         passwd = mh.digest()
-        aes = AES.new(passwd[:16], AES.MODE_ECB)
-        ofp = open(fname, 'wb')
-        for keystr in self.keylist:
-            appstr = self.sndrnd.ecc256_random(1)
-            plain = keystr[0] + appstr[:12]
-            crc32 = self.libecc.crc32(plain, len(plain))
-            if (crc32 < 0):
-                crc32 += 2**32
-            plain += crc32.to_bytes(4, 'big')
-            scrtext = aes.encrypt(plain)
-            ofp.write(scrtext)
-        ofp.close()
-        self.keymod = 0
+        self.glob.save_key(fname, passwd[:16])
 
     def mexit(self):
-        if self.keymod and mesgbox.askyesno("Confirm Action", \
+        if self.glob.keymod and mesgbox.askyesno("Confirm Action", \
                 "Keys has been modified, Save it?", master=self):
             self.config(cursor="watch")
             self.save_key()
             self.config(cursor="")
-        sys.exit()
+        sys.exit(0)
 
 
 if __name__ == "__main__":
     def ttransfer():
         neww = tk.Toplevel(root)
-        token_op = TokenTX.TokenTX(neww, keyfile.keylist, mfont)
+        token_op = TokenTX.TokenTX(neww, keyfile.glob, mfont)
         neww.title("Token Transfer")
         
     fname=os.getcwd() + '/ecc256_key.pri'
