@@ -113,10 +113,6 @@ class GlobParam:
         return khashs
 
 class KeyFile(tk.Frame):
-    def append_key(self, keystr):
-        pkeyhash = self.glob.append_key(keystr)
-        self.publist.append_item(pkeyhash)
-
     def generate_key(self):
         khash = self.glob.generate_key()
         if khash:
