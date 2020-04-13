@@ -11,6 +11,7 @@ import audiorand
 import ctypes
 import TokenTX
 import CopyListbox
+import socket
 
 mfont = ('courier', 16, 'bold')
 
@@ -49,7 +50,10 @@ class GlobParam:
             sys.exit(1)
         self.keylist = []
         self.keymod = 0
-        self.mfont = ('courier', 16, 'bold')
+        self.mfont = mfont
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        txsvr = socket.getaddrinfo("localhost", "6001", socket.SOCK_DGRAM)
+        self.sock = (sock, txsvr[4])
 
     def append_key(self, keystr):
         b64key = b'0' + audiorand.bin2str_b64(keystr)
@@ -132,7 +136,7 @@ class KeyFile(tk.Frame):
             for pkhash in khashs:
                 self.publist.append_item(pkhash)
 
-    def __init__(self, parent=None, fname=None, width=32):
+    def __init__(self, parent, glob, width=32):
         super().__init__(parent)
         self.pack(side=tk.TOP, expand=tk.YES, fill=tk.BOTH)
 
@@ -169,7 +173,7 @@ class KeyFile(tk.Frame):
         separator = tk.Frame(f2, height=8, bg='black', bd=2, relief=tk.SUNKEN)
         separator.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
         self.publist = SList(f2)
-        self.glob = GlobParam('')
+        self.glob = glob
 
     def save_key(self):
         fname = filedialog.asksaveasfilename(parent=self, title='Save Key File',
@@ -193,7 +197,7 @@ class KeyFile(tk.Frame):
 if __name__ == "__main__":
     def ttransfer():
         neww = tk.Toplevel(root)
-        token_op = TokenTX.TokenTX(neww, keyfile.glob, mfont)
+        token_op = TokenTX.TokenTX(neww, keyfile.glob)
         neww.title("Token Transfer")
         
     fname=os.getcwd() + '/ecc256_key.pri'
@@ -207,8 +211,8 @@ if __name__ == "__main__":
     fp1.pack(side=tk.TOP, expand=tk.YES, fill=tk.X);
     fp2 = tk.Frame(root)
     fp2.pack(side=tk.BOTTOM, expand=tk.YES, fill=tk.X);
-
-    keyfile = KeyFile(fp1, fname)
+    glob = GlobParam('')
+    keyfile = KeyFile(fp1, glob)
 
     tk.Button(fp2, text="Token Transfer", font=mfont,
             width=25, command=ttransfer).pack(side=tk.LEFT)

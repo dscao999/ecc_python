@@ -118,16 +118,15 @@ class TokenID:
 
 
 class TokenTX:
-    def __init__(self, parent, keylist, mfont):
-        self.keys = keylist
+    def __init__(self, parent, glob):
+        self.glob = glob
         self.parent = parent
         self.asset = 0
-        self.mfont = mfont
 
         self.cnx = mariadb.connect(**mariadb_config)
         self.cursor = self.cnx.cursor()
 
-        self.tokid = TokenID(parent, self.cursor, mfont)
+        self.tokid = TokenID(parent, self.cursor, glob.mfont)
 
         mfrm = tk.Frame(parent)
         mfrm.pack(side=tk.TOP, fill=tk.X, expand=tk.YES)
@@ -136,11 +135,11 @@ class TokenTX:
         ufrm.pack(side=tk.TOP, fill=tk.X, expand=tk.YES)
 
         sbut = tk.Button(ufrm, text='Check', width=25, command=self.search_tokens)
-        sbut.config(font=mfont)
+        sbut.config(font=glob.mfont)
         sbut.pack(side=tk.TOP)
 
         sbar = tk.Scrollbar(ufrm)
-        self.v_lbox = CopyListbox.CopyListbox(ufrm, relief=tk.SUNKEN, font=mfont, width=46)
+        self.v_lbox = CopyListbox.CopyListbox(ufrm, relief=tk.SUNKEN, font=glob.mfont, width=46)
         sbar.config(command=self.v_lbox.yview)
         self.v_lbox.config(yscrollcommand=sbar.set)
         sbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -153,34 +152,34 @@ class TokenTX:
         llfrm.pack(side=tk.TOP, fill=tk.X, expand=tk.YES)
 
         tbut = tk.Button(llfrm, text='Transfer', width=25, command=self.transfer_token)
-        tbut.config(font=mfont)
+        tbut.config(font=glob.mfont)
         tbut.pack(side=tk.LEFT)
 
         cbut = tk.Button(llfrm, text='Create', width=25, command=self.create_token)
-        cbut.config(font=mfont)
+        cbut.config(font=glob.mfont)
         cbut.pack(side=tk.RIGHT)
         self.value_str = tk.StringVar()
         self.value_str.set('1000')
         value_entry = tk.Entry(llfrm, textvariable=self.value_str, width=16)
-        value_entry.config(font=mfont)
+        value_entry.config(font=glob.mfont)
         value_entry.pack()
 
         ulfrm = tk.Frame(lfrm)
         ulfrm.pack(side=tk.BOTTOM, fill=tk.X, expand=tk.YES)
-        tk.Label(ulfrm, text="Transfer to:", font=mfont, width=16).pack(side=tk.LEFT)
+        tk.Label(ulfrm, text="Transfer to:", font=glob.mfont, width=16).pack(side=tk.LEFT)
         self.recipient = tk.StringVar()
         self.recipient.set('')
         rec_entry = CopyListbox.PasteEntry(ulfrm, textvariable=self.recipient, width=30)
-        rec_entry.config(font=mfont)
+        rec_entry.config(font=glob.mfont)
         rec_entry.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
 
         mfrm = tk.Frame(parent)
         mfrm.pack(side=tk.BOTTOM, fill=tk.X, expand=tk.YES)
-        tk.Label(mfrm, text="Use Key:", font=mfont, width=16).pack(side=tk.LEFT)
+        tk.Label(mfrm, text="Use Key:", font=glob.mfont, width=16).pack(side=tk.LEFT)
         self.usekey = tk.StringVar()
         self.usekey.set('')
         rec_entry = CopyListbox.PasteEntry(mfrm, textvariable=self.usekey, width=30)
-        rec_entry.config(font=mfont)
+        rec_entry.config(font=glob.mfont)
         rec_entry.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
 
     def transfer_token(self):
@@ -194,8 +193,8 @@ class TokenTX:
         selsql = "select value from utxo where " \
                 "etoken_id = %(etoken_id)s and keyhash = %(keyhash)s"
         self.asset = 0
-        print("Number of Keys: {}".format(len(self.keys)))
-        for keytup in self.keys:
+        print("Number of Keys: {}".format(len(self.glob.keylist)))
+        for keytup in self.glob.keylist:
             keyhash = keytup[1]
             self.cursor.execute(selsql, {"etoken_id": token, "keyhash": keyhash})
             for value in self.cursor:
@@ -207,18 +206,22 @@ class TokenTX:
 
     def create_token(self):
         token = self.tokid.get_token_id()
-        print("token type: {}".format(type(token)))
         value = int(self.value_str.get())
         recipient = self.recipient.get().encode('utf-8')
         usekey = self.usekey.get()
         if value > 0 and len(recipient) == 28 and len(usekey) == 28:
             print("Will create Token ID: {}, number: {} for {}".format(token, value, recipient))
             print("Will use key: {}".format(usekey))
-        for trikey in self.keys:
+        for trikey in self.glob.keylist:
             if trikey[1] == usekey:
                 mkey = b'0' + audiorand.bin2str_b64(trikey[0])
                 txrec = ctypes.create_string_buffer(2048);
-                print("private key: {} type: {}, ctypes buffer type: {}".format(mkey.decode('utf-8'), type(mkey), type(txrec)))
+                retv = self.glob.libtoktx.tx_create_token(txrec, 2048, ctypes.c_int(token),
+                        ctypes.c_ulong(value), ctypes.c_int(0), recipient, mkey)
+                if retv > 0:
+                    txf = open("/tmp/txtoken.dat", "wb")
+                    txf.write(bytes(txrec[:retv]))
+                    txf.close()
 
 def show_vid():
     vid = mydrop.getv()
