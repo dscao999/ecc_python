@@ -52,8 +52,10 @@ class GlobParam:
         self.keymod = 0
         self.mfont = mfont
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        txsvr = socket.getaddrinfo("localhost", "6001", socket.SOCK_DGRAM)
-        self.sock = (sock, txsvr[4])
+        txsvr = socket.getaddrinfo("localhost", "6001", family=socket.AF_INET, type=socket.SOCK_DGRAM)
+        for item in txsvr:
+            print("type: {}, value: {}".format(type(item), item))
+        self.sock = (sock, txsvr[0][4])
 
     def append_key(self, keystr):
         b64key = b'0' + audiorand.bin2str_b64(keystr)

@@ -6,6 +6,9 @@ import CopyListbox
 from tkinter import simpledialog
 import audiorand
 import ctypes
+import hashlib
+import time
+import socket
 
 mariadb_config = {
         'user': 'dscao',
@@ -204,6 +207,30 @@ class TokenTX:
                 self.v_lbox.insert(tk.END, item)
                 self.asset += value
 
+    def send_txrec(self, txrec):
+        txf = open("/tmp/txtoken.dat", "wb")
+        txf.write(txrec)
+        txf.close()
+
+        sha = hashlib.new('sha256')
+        sha.update(txrec)
+        hashidx = sha.digest()
+        packet = len(txrec).to_bytes(2, byteorder='little') + (1).to_bytes(2, byteorder='little') + txrec
+        for i in range(10):
+            self.glob.sock[0].sendto(packet, self.glob.sock[1])
+            time.sleep(0.8)
+            ack = self.glob.sock[0].recv(2048, socket.MSG_DONTWAIT)
+            if ack:
+                acklen = int.from_bytes(ack[:2], 'little')
+                ackval = int.from_bytes(ack[2:4], 'little')
+                if acklen == 32 and ackval and hashidx == ack[4:]:
+                    print("OK!")
+                else:
+                    print("Not OK!")
+                break
+        print("Index i: {}".format(i))
+
+
     def create_token(self):
         token = self.tokid.get_token_id()
         value = int(self.value_str.get())
@@ -215,13 +242,14 @@ class TokenTX:
         for trikey in self.glob.keylist:
             if trikey[1] == usekey:
                 mkey = b'0' + audiorand.bin2str_b64(trikey[0])
-                txrec = ctypes.create_string_buffer(2048);
-                retv = self.glob.libtoktx.tx_create_token(txrec, 2048, ctypes.c_int(token),
+                txrec_buf = ctypes.create_string_buffer(2048);
+                retv = self.glob.libtoktx.tx_create_token(txrec_buf, 2048, ctypes.c_int(token),
                         ctypes.c_ulong(value), ctypes.c_int(0), recipient, mkey)
                 if retv > 0:
-                    txf = open("/tmp/txtoken.dat", "wb")
-                    txf.write(bytes(txrec[:retv]))
-                    txf.close()
+                    txrec = bytes(txrec_buf[:retv])
+                    self.send_txrec(txrec)
+                break
+
 
 def show_vid():
     vid = mydrop.getv()
