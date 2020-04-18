@@ -216,19 +216,25 @@ class TokenTX:
         sha.update(txrec)
         hashidx = sha.digest()
         packet = len(txrec).to_bytes(2, byteorder='little') + (1).to_bytes(2, byteorder='little') + txrec
-        for i in range(10):
+        for i in range(3):
             self.glob.sock[0].sendto(packet, self.glob.sock[1])
-            time.sleep(0.8)
-            ack = self.glob.sock[0].recv(2048, socket.MSG_DONTWAIT)
-            if ack:
+            time.sleep(2)
+            ack = self.glob.sock[0].recv(2048)
+            rep = 0
+            while not ack and rep < 5:
+                time.sleep(0.2)
+                ack = self.glob.sock[0].recv(2048, socket.MSG_DONTWAIT)
+                rep += 1
+            if ack and hashidx == ack[4:]:
                 acklen = int.from_bytes(ack[:2], 'little')
                 ackval = int.from_bytes(ack[2:4], 'little')
-                if acklen == 32 and ackval and hashidx == ack[4:]:
-                    print("OK!")
+                print("Ack: {}".format(ackval))
+                if ackval == 1 or ackval == 2:
+                    mesgbox.showinfo("Information", "Transaction Accepted")
+                elif ackval == 0:
+                    mesgbox.showerror("Error", "Transaction Rejected")
                 else:
-                    print("Not OK!")
-                break
-        print("Index i: {}".format(i))
+                    mesgbox.showerror("Error", "Server failed")
 
 
     def create_token(self):
