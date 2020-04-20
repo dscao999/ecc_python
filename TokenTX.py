@@ -215,7 +215,7 @@ class TokenTX:
         sha = hashlib.new('sha256')
         sha.update(txrec)
         hashidx = sha.digest()
-        packet = len(txrec).to_bytes(2, byteorder='little') + (1).to_bytes(2, byteorder='little') + txrec
+        packet = len(txrec).to_bytes(4, byteorder='little') + (1).to_bytes(4, byteorder='little') + txrec
         for i in range(3):
             self.glob.sock[0].sendto(packet, self.glob.sock[1])
             time.sleep(2)

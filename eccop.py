@@ -58,19 +58,16 @@ class GlobParam:
         self.sock = (sock, txsvr[0][4])
 
     def append_key(self, keystr):
-        b64key = b'0' + audiorand.bin2str_b64(keystr)
-        ecckey = ctypes.create_string_buffer(b'\000', 96)
-        self.libtoktx.ecc_key_import_str(ecckey, b64key)
         pkeyhash = ctypes.create_string_buffer(b'\000', 48)
-        self.libtoktx.ecc_key_hash_str(pkeyhash, 48, ecckey)
+        self.libtoktx.ecc_key_hash_str(pkeyhash, 48, keystr)
         pkeyhash = bytes(pkeyhash).decode('utf-8').strip("\000")
         self.keylist.append((keystr, pkeyhash))
         self.keymod = 1
         return pkeyhash
     
     def generate_key(self):
-        keystr = bytes(ctypes.create_string_buffer(32))
-        if self.libtoktx.noise_random(keystr, 5) < 0:
+        keystr = bytes(ctypes.create_string_buffer(96))
+        if self.libtoktx.ecc_genkey(keystr, 5) < 0:
             print("Cannot generate a random")
             return None
         else:
@@ -87,7 +84,7 @@ class GlobParam:
         for keystr in self.keylist:
             self.libtoktx.noise_random(appstr, 1)
             pad = bytes(appstr[:12])
-            plain = keystr[0] + pad
+            plain = keystr[0][:32] + pad
             crc32 = self.libtoktx.crc32(plain, len(plain))
             if (crc32 < 0):
                 crc32 += 2**32
@@ -112,7 +109,9 @@ class GlobParam:
                 self.clear_key()
                 return khashs.clear()
             keystr = pla[:32]
-            khashs.append(self.append_key(keystr))
+            ecckey = bytes(ctypes.create_string_buffer(96))
+            self.libtoktx.ecc_get_public(keystr, ecckey)
+            khashs.append(self.append_key(ecckey))
             cip = ifp.read(48)
         ifp.close()
         self.keymod = 0
