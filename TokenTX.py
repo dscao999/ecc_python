@@ -225,9 +225,9 @@ class TokenTX:
                 time.sleep(0.2)
                 ack = self.glob.sock[0].recv(2048, socket.MSG_DONTWAIT)
                 rep += 1
-            if ack and hashidx == ack[4:]:
-                acklen = int.from_bytes(ack[:2], 'little')
-                ackval = int.from_bytes(ack[2:4], 'little')
+            if ack and hashidx == ack[8:]:
+                acklen = int.from_bytes(ack[:4], 'little')
+                ackval = int.from_bytes(ack[4:8], 'little')
                 print("Ack: {}".format(ackval))
                 if ackval == 1 or ackval == 2:
                     mesgbox.showinfo("Information", "Transaction Accepted")
@@ -247,10 +247,9 @@ class TokenTX:
             print("Will use key: {}".format(usekey))
         for trikey in self.glob.keylist:
             if trikey[1] == usekey:
-                mkey = b'0' + audiorand.bin2str_b64(trikey[0])
                 txrec_buf = ctypes.create_string_buffer(2048);
                 retv = self.glob.libtoktx.tx_create_token(txrec_buf, 2048, ctypes.c_int(token),
-                        ctypes.c_ulong(value), ctypes.c_int(0), recipient, mkey)
+                        ctypes.c_ulong(value), ctypes.c_int(0), recipient, trikey[0])
                 if retv > 0:
                     txrec = bytes(txrec_buf[:retv])
                     self.send_txrec(txrec)
