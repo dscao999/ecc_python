@@ -193,19 +193,43 @@ class TokenTX:
     def search_tokens(self):
         self.v_lbox.delete(0, tk.END)
         token = self.tokid.get_token_id()
-        selsql = "select value from utxo where " \
-                "etoken_id = %(etoken_id)s and keyhash = %(keyhash)s"
         self.asset = 0
-        print("Number of Keys: {}".format(len(self.glob.keylist)))
+        
+        reqbuf = token.to_bytes(2, 'little')
         for keytup in self.glob.keylist:
             keyhash = keytup[1]
-            self.cursor.execute(selsql, {"etoken_id": token, "keyhash": keyhash})
-            for value in self.cursor:
-                item = "Key: {} Token ID: {} Value: {}".format(keyhash, etoken_id, value)
-                print(item)
-                print(type(value))
-                self.v_lbox.insert(tk.END, item)
-                self.asset += value
+            reqbuf += (len(keyhash) + 1).to_bytes(2, 'little')
+            reqbuf += keyhash.encode('utf8') + int(0).to_bytes(1, 'little')
+        reqbuf += int(0).to_bytes(2, 'little')
+        reqbuf = len(reqbuf).to_bytes(4, 'little') + int(2).to_bytes(4, 'little') + reqbuf
+        for i in range(5):
+            self.glob.sock[0].sendto(reqbuf, self.glob.sock[1])
+            rep = 0
+            while rep < 5:
+                time.sleep(1)
+                try:
+                    ack = self.glob.sock[0].recv(2048, socket.MSG_DONTWAIT)
+                    break
+                except BlockingIOError:
+                    pass
+                rep += 1
+
+            try:
+                acklen = int.from_bytes(ack[:4], 'little')
+                ackval = int.from_bytes(ack[4:8], 'little')
+                if ackval != 1:
+                    break
+                pos = 8
+                while pos < acklen:
+                    value = int.from_bytes(ack[pos:pos+8], 'little')
+                    pos += 8;
+                    hash = ack[pos:pos+28].decode('utf8')
+                    pos += 32
+                    print("key: {} --> value: {}".format(hash, value))
+                print("Length: {} {}".format(pos, acklen))
+                break
+            except NameError:
+                mesgbox.showerror("Error", "No response from server")
 
     def send_txrec(self, txrec):
         txf = open("/tmp/txtoken.dat", "wb")
@@ -217,24 +241,31 @@ class TokenTX:
         hashidx = sha.digest()
         packet = len(txrec).to_bytes(4, byteorder='little') + (1).to_bytes(4, byteorder='little') + txrec
         for i in range(3):
+            print("Send {}".format(i))
             self.glob.sock[0].sendto(packet, self.glob.sock[1])
-            time.sleep(2)
-            ack = self.glob.sock[0].recv(2048)
             rep = 0
-            while not ack and rep < 5:
-                time.sleep(0.2)
-                ack = self.glob.sock[0].recv(2048, socket.MSG_DONTWAIT)
+            while rep < 5:
+                time.sleep(1)
+                try:
+                    ack = self.glob.sock[0].recv(2048, socket.MSG_DONTWAIT)
+                    break
+                except BlockingIOError:
+                    pass
                 rep += 1
-            if ack and hashidx == ack[8:]:
-                acklen = int.from_bytes(ack[:4], 'little')
-                ackval = int.from_bytes(ack[4:8], 'little')
-                print("Ack: {}".format(ackval))
-                if ackval == 1 or ackval == 2:
-                    mesgbox.showinfo("Information", "Transaction Accepted")
-                elif ackval == 0:
-                    mesgbox.showerror("Error", "Transaction Rejected")
-                else:
-                    mesgbox.showerror("Error", "Server failed")
+
+            try:
+                if hashidx == ack[8:]:
+                    acklen = int.from_bytes(ack[:4], 'little')
+                    ackval = int.from_bytes(ack[4:8], 'little')
+                    print("Ack: {}".format(ackval))
+                    if ackval == 1 or ackval == 2:
+                        mesgbox.showinfo("Information", "Transaction Accepted")
+                    elif ackval == 0:
+                        mesgbox.showerror("Error", "Transaction Rejected")
+                    else:
+                        mesgbox.showerror("Error", "Server logic failed")
+            except NameError:
+                mesgbox.showerror("Error", "No response from server")
 
 
     def create_token(self):
