@@ -240,8 +240,8 @@ class TokenTX:
         sha.update(txrec)
         hashidx = sha.digest()
         packet = len(txrec).to_bytes(4, byteorder='little') + (1).to_bytes(4, byteorder='little') + txrec
-        for i in range(3):
-            print("Send {}".format(i))
+        tagain = 1
+        while tagain:
             self.glob.sock[0].sendto(packet, self.glob.sock[1])
             rep = 0
             while rep < 5:
@@ -253,19 +253,21 @@ class TokenTX:
                     pass
                 rep += 1
 
-            try:
-                if hashidx == ack[8:]:
-                    acklen = int.from_bytes(ack[:4], 'little')
-                    ackval = int.from_bytes(ack[4:8], 'little')
-                    print("Ack: {}".format(ackval))
-                    if ackval == 1 or ackval == 2:
-                        mesgbox.showinfo("Information", "Transaction Accepted")
-                    elif ackval == 0:
-                        mesgbox.showerror("Error", "Transaction Rejected")
-                    else:
-                        mesgbox.showerror("Error", "Server logic failed")
-            except NameError:
-                mesgbox.showerror("Error", "No response from server")
+            if rep == 5:
+                askbox = mesgbox.askquestion("Error", "No response from server, Try again?")
+                if askbox != 'yes':
+                    tagain = 0
+                    continue
+            elif hashidx == ack[8:]:
+                acklen = int.from_bytes(ack[:4], 'little')
+                ackval = int.from_bytes(ack[4:8], 'little')
+                print("Ack: {}".format(ackval))
+                if ackval == 1 or ackval == 2:
+                    mesgbox.showinfo("Information", "Transaction Accepted")
+                elif ackval == 0:
+                    mesgbox.showerror("Error", "Transaction Rejected")
+                else:
+                    mesgbox.showerror("Error", "Server logic failed")
 
 
     def create_token(self):
