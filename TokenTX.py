@@ -244,7 +244,7 @@ class TokenTX:
         while tagain:
             self.glob.sock[0].sendto(packet, self.glob.sock[1])
             rep = 0
-            while rep < 5:
+            while rep < 10:
                 time.sleep(1)
                 try:
                     ack = self.glob.sock[0].recv(2048, socket.MSG_DONTWAIT)
@@ -253,7 +253,7 @@ class TokenTX:
                     pass
                 rep += 1
 
-            if rep == 5:
+            if rep == 10:
                 askbox = mesgbox.askquestion("Error", "No response from server, Try again?")
                 if askbox != 'yes':
                     tagain = 0
@@ -268,6 +268,7 @@ class TokenTX:
                     mesgbox.showerror("Error", "Transaction Rejected")
                 else:
                     mesgbox.showerror("Error", "Server logic failed")
+                tagain = 0
 
 
     def create_token(self):
