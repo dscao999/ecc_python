@@ -51,14 +51,14 @@ class TokenID:
         sep.pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=5)
 
         self.cursor = cursor
-        vendor_query = ("SELECT * from vendors")
+        vendor_query = ("SELECT * FROM vendors")
         self.cursor.execute(vendor_query)
         self.vendors = []
         for (vid, name, descp) in self.cursor:
             self.vendors.append({'id': vid, 'name': name, 'desc': descp})
         self.vendrop = DropDown(optfrm, self.vendors)
 
-        self.cat_query = ("SELECT id, name, descp from etoken_cat where vendor_id = %(vendor_id)s")
+        self.cat_query = ("SELECT id, name, descp FROM etoken_cat WHERE vendor_id = %(vendor_id)s")
         vid = self.vendors[0]['id']
         self.cursor.execute(self.cat_query, {'vendor_id': vid})
         self.cats = []
@@ -66,7 +66,7 @@ class TokenID:
             self.cats.append({'id': catid, 'name': name, 'desc': descp})
         self.catdrop = DropDown(optfrm, self.cats)
 
-        self.tok_query = ("SELECT * from etoken_type where cat_id = %(cat_id)s")
+        self.tok_query = ("SELECT * FROM etoken_type WHERE cat_id = %(cat_id)s")
         cat_id = self.cats[0]['id']
         self.cursor.execute(self.tok_query, {'cat_id': cat_id})
         self.toks = []
@@ -301,7 +301,7 @@ if __name__ == "__main__":
 
     cnx = mariadb.connect(**mariadb_config)
     cursor = cnx.cursor()
-    vendor_query = ("SELECT * from vendors")
+    vendor_query = ("SELECT * FROM vendors")
     cursor.execute(vendor_query)
     mylist = []
     for (vid, name, descp) in cursor:
