@@ -206,13 +206,13 @@ class TokenTX:
             self.glob.sock[0].sendto(reqbuf, self.glob.sock[1])
             rep = 0
             while rep < 5:
-                time.sleep(1)
                 try:
                     ack = self.glob.sock[0].recv(2048, socket.MSG_DONTWAIT)
                     break
                 except BlockingIOError:
                     pass
                 rep += 1
+                time.sleep(1)
 
             try:
                 acklen = int.from_bytes(ack[:4], 'little')
@@ -220,13 +220,14 @@ class TokenTX:
                 if ackval != 1:
                     break
                 pos = 8
-                while pos < acklen:
+                while pos - 8 < acklen:
                     value = int.from_bytes(ack[pos:pos+8], 'little')
                     pos += 8;
-                    hash = ack[pos:pos+28].decode('utf8')
+                    strlen = int.from_bytes(ack[pos:pos+1], 'little')
+                    keyhash = ack[pos+1:pos+strlen].decode('utf8')
+                    litem = keyhash.rstrip('\0') + ' ---> ' + str(value)
                     pos += 32
-                    print("key: {} --> value: {}".format(hash, value))
-                print("Length: {} {}".format(pos, acklen))
+                    self.v_lbox.insert(tk.END, litem)
                 break
             except NameError:
                 mesgbox.showerror("Error", "No response from server")
