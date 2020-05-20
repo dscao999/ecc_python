@@ -202,10 +202,11 @@ class TokenTX:
             reqbuf += keyhash.encode('utf8') + int(0).to_bytes(1, 'little')
         reqbuf += int(0).to_bytes(2, 'little')
         reqbuf = len(reqbuf).to_bytes(4, 'little') + int(2).to_bytes(4, 'little') + reqbuf
-        for i in range(5):
+        retry = 1
+        while retry == 1:
             self.glob.sock[0].sendto(reqbuf, self.glob.sock[1])
             rep = 0
-            while rep < 5:
+            while rep < 3:
                 try:
                     ack = self.glob.sock[0].recv(2048, socket.MSG_DONTWAIT)
                     break
@@ -214,7 +215,7 @@ class TokenTX:
                 rep += 1
                 time.sleep(1)
 
-            try:
+            if rep < 3:
                 acklen = int.from_bytes(ack[:4], 'little')
                 ackval = int.from_bytes(ack[4:8], 'little')
                 if ackval != 1:
@@ -229,8 +230,9 @@ class TokenTX:
                     pos += 32
                     self.v_lbox.insert(tk.END, litem)
                 break
-            except NameError:
-                mesgbox.showerror("Error", "No response from server")
+            else:
+                if not mesgbox.askretrycancel("Error", "No response from server. Try Again?"):
+                    retry = 0
 
     def send_txrec(self, txrec):
         txf = open("/tmp/txtoken.dat", "wb")
