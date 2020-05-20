@@ -191,9 +191,32 @@ class TokenTX:
         rec_entry.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
 
     def transfer_token(self):
+        def mlst_sort(litem):
+            return litem['value']
+
         token = self.tokid.get_token_id()
+        if token != self.asset['token']:
+            mesgbox.showerror("Error", "Please Check for your assets");
+            return
+
         value = int(self.value_str.get())
-        print("Will transfer Token ID: {}, number: {}".format(token, value))
+        mvalue = 0
+        for item in self.asset['by_key']:
+            mvalue += item['value']
+        if mvalue < value:
+            mesgbox.showerror("Error", "Do not have enough assets")
+            return
+        payto = self.recipient.get().rstrip(' ')
+        if len(payto) != 28:
+            mesgbox.showerror("Error", "The Token Recipient must be specified")
+            return
+        mlst = self.asset['by_key'][:]
+        mlst.sort(reverse=True, key=mlst_sort)
+        for litm in mlst:
+            print("key: {}, value: {}".format(litm['key'], litm['value']))
+        print("Will transfer Token ID: {}, number: {}, payto: {}".format(token, value, payto))
+        for litm in self.asset['by_key']:
+            print("key: {}, value: {}".format(litm['key'], litm['value']))
 
     def search_tokens(self):
         self.v_lbox.delete(0, tk.END)
