@@ -124,9 +124,14 @@ class TokenTX:
     def __init__(self, parent, glob):
         self.glob = glob
         self.parent = parent
-        self.asset = 0
+        self.asset = {'token': 0, 'by_key': []}
 
-        self.cnx = mariadb.connect(**mariadb_config)
+        try:
+            self.cnx = mariadb.connect(**mariadb_config)
+        except mariadb.Error:
+            mesgbox.showerror("Error", "Cannot connect to DB Server")
+            sys.exit(1)
+
         self.cursor = self.cnx.cursor()
 
         self.tokid = TokenID(parent, self.cursor, glob.mfont)
@@ -193,7 +198,9 @@ class TokenTX:
     def search_tokens(self):
         self.v_lbox.delete(0, tk.END)
         token = self.tokid.get_token_id()
-        self.asset = 0
+        self.asset['token'] = token;
+        kvlst = self.asset['by_key']
+        kvlst.clear()
         
         reqbuf = token.to_bytes(2, 'little')
         for keytup in self.glob.keylist:
@@ -225,14 +232,18 @@ class TokenTX:
                     value = int.from_bytes(ack[pos:pos+8], 'little')
                     pos += 8;
                     strlen = int.from_bytes(ack[pos:pos+1], 'little')
-                    keyhash = ack[pos+1:pos+strlen].decode('utf8')
-                    litem = keyhash.rstrip('\0') + ' ---> ' + str(value)
+                    keyhash = ack[pos+1:pos+strlen].decode('utf8').rstrip('\0')
+                    litem = keyhash + ' ---> ' + str(value)
                     pos += 32
                     self.v_lbox.insert(tk.END, litem)
+                    kvlst.append({'value': value, 'key': keyhash})
                 break
             else:
                 if not mesgbox.askretrycancel("Error", "No response from server. Try Again?"):
                     retry = 0
+        print("etoken ID: {}".format(self.asset['token']))
+        for item in self.asset['by_key']:
+            print("Key: {}, Value: {}".format(item['key'], item['value']))
 
     def send_txrec(self, txrec):
         txf = open("/tmp/txtoken.dat", "wb")
@@ -302,10 +313,15 @@ if __name__ == "__main__":
     root.title(sys.argv[0])
     mfont = ('courier', 16, 'bold')
 
-    cnx = mariadb.connect(**mariadb_config)
-    cursor = cnx.cursor()
-    vendor_query = ("SELECT * FROM vendors")
-    cursor.execute(vendor_query)
+    try:
+        cnx = mariadb.connect(**mariadb_config)
+        cursor = cnx.cursor()
+        vendor_query = ("SELECT * FROM vendors")
+        cursor.execute(vendor_query)
+    except ConnectionRefusedError:
+        mesgbox.showerror("Error", "Cannot connect to DB Server");
+        sys.exit(1)
+
     mylist = []
     for (vid, name, descp) in cursor:
         mylist.append({'id': vid, 'name': name, 'desc': descp})
