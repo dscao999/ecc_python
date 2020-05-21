@@ -198,7 +198,6 @@ class TokenTX:
         if token != self.asset['token']:
             mesgbox.showerror("Error", "Please Check for your assets");
             return
-
         value = int(self.value_str.get())
         mvalue = 0
         for item in self.asset['by_key']:
@@ -212,11 +211,36 @@ class TokenTX:
             return
         mlst = self.asset['by_key'][:]
         mlst.sort(reverse=True, key=mlst_sort)
-        for litm in mlst:
-            print("key: {}, value: {}".format(litm['key'], litm['value']))
         print("Will transfer Token ID: {}, number: {}, payto: {}".format(token, value, payto))
-        for litm in self.asset['by_key']:
-            print("key: {}, value: {}".format(litm['key'], litm['value']))
+
+        idx = 1
+        sval = 0
+        for item in mlst:
+            sval += item['value']
+            if sval >= value:
+                break;
+            idx += 1
+        if sval < value:
+            mesgbox.showerror("Logic Error", "Internal Logic Error")
+            return
+        lptr = ctypes.create_string_buffer(8)
+        retv = self.glob.libtoktx.tx_trans_begin(lptr, token, ctypes.c_ulong(value), payto.encode('utf-8'))
+        txrec = int.from_bytes(lptr, byteorder='little')
+        print("In Python: {}".format(hex(txrec)))
+        keylst = self.glob.keylist
+        for i in range(idx):
+            pkey = mlst[i]['key']
+            for mkey in keylst:
+                if mkey[1] == pkey:
+                    break
+            if pkey != mkey[1]:
+                mesgbox.showerror("Logic Error", "Internal Logic Error")
+                self.glob.libtoktx.tx_trans_abort(txrec)
+                return
+            pos = self.glob.libtoktx.tx_trans_add(ctypes.c_ulong(txrec), mkey[0], mlst[i]['value'])
+        txbuf = ctypes.create_string_buffer(2048)
+        txlen = self.glob.libtoktx.tx_trans_end(txbuf, 2048, ctypes.c_ulong(txrec))
+
 
     def search_tokens(self):
         self.v_lbox.delete(0, tk.END)
@@ -252,15 +276,18 @@ class TokenTX:
                     break
                 pos = 8
                 while pos - 8 < acklen:
-                    value = int.from_bytes(ack[pos:pos+8], 'little')
-                    pos += 8;
                     strlen = int.from_bytes(ack[pos:pos+1], 'little')
                     keyhash = ack[pos+1:pos+strlen].decode('utf8').rstrip('\0')
-                    litem = keyhash + ' ---> ' + str(value)
-                    pos += 32
-                    self.v_lbox.insert(tk.END, litem)
-                    kvlst.append({'value': value, 'key': keyhash})
-                break
+                    pos += strlen;
+                    value = int.from_bytes(ack[pos:pos+8], 'little')
+                    pos += 8;
+                    while value != 0:
+                        kvlst.append({'value': value, 'key': keyhash})
+                        litem = keyhash + ' ---> ' + str(value)
+                        self.v_lbox.insert(tk.END, litem)
+                        value = int.from_bytes(ack[pos:pos+8], 'little')
+                        pos += 8
+                retry = 0
             else:
                 if not mesgbox.askretrycancel("Error", "No response from server. Try Again?"):
                     retry = 0
