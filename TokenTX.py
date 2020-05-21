@@ -280,13 +280,14 @@ class TokenTX:
                     keyhash = ack[pos+1:pos+strlen].decode('utf8').rstrip('\0')
                     pos += strlen;
                     value = int.from_bytes(ack[pos:pos+8], 'little')
-                    pos += 8;
                     while value != 0:
-                        kvlst.append({'value': value, 'key': keyhash})
+                        pos += 8;
+                        txid = ack[pos:pos+32]
+                        pos += 32
+                        kvlst.append({'value': value, 'key': keyhash, 'txid': txid})
                         litem = keyhash + ' ---> ' + str(value)
                         self.v_lbox.insert(tk.END, litem)
                         value = int.from_bytes(ack[pos:pos+8], 'little')
-                        pos += 8
                 retry = 0
             else:
                 if not mesgbox.askretrycancel("Error", "No response from server. Try Again?"):
