@@ -223,10 +223,27 @@ class TokenTX:
         if sval < value:
             mesgbox.showerror("Logic Error", "Internal Logic Error")
             return
+        owner = audiorand.str2bin_b64(payto.encode('utf-8'))
         lptr = ctypes.create_string_buffer(8)
-        retv = self.glob.libtoktx.tx_trans_begin(lptr, token, ctypes.c_ulong(value), payto.encode('utf-8'))
+        retv = self.glob.libtoktx.tx_trans_begin(lptr, token, ctypes.c_ulong(value), owner)
+        if retv != 0:
+            mesgbox.showerror("Error", "Out of Memory");
+            return
         txrec = int.from_bytes(lptr, byteorder='little')
-        print("In Python: {}".format(hex(txrec)))
+        for i in range(idx):
+            retv = self.glob.libtoktx.tx_trans_add(ctypes.c_ulong(txrec), mlst[i]['txid'], mlst[i]['vout_idx'])
+            if retv != 0:
+                mesgbox.showerror("Error", "Out of Memory")
+                self.glob.libtoktx.tx_trans_abort(ctypes.c_ulong(txrec))
+                return
+        if sval > value:
+            owner = audiorand.str2bin_b64(mlst[0]['key'].encode('utf-8'))
+            retv = self.glob.libtoktx.tx_trans_sup(ctypes.c_ulong(txrec), ctypes.c_ulong(sval-value), owner)
+            if retv != 0:
+                mesgbox.showerror("Error", "Out of Memory")
+                self.glob.libtoktx.tx_trans_abort(ctypes.c_ulong(txrec))
+                return
+
         keylst = self.glob.keylist
         for i in range(idx):
             pkey = mlst[i]['key']
@@ -235,9 +252,14 @@ class TokenTX:
                     break
             if pkey != mkey[1]:
                 mesgbox.showerror("Logic Error", "Internal Logic Error")
-                self.glob.libtoktx.tx_trans_abort(txrec)
+                self.glob.libtoktx.tx_trans_abort(ctypes.c_ulong(txrec))
                 return
-            pos = self.glob.libtoktx.tx_trans_add(ctypes.c_ulong(txrec), mkey[0], mlst[i]['value'])
+            retv = self.glob.libtoktx.tx_trans_sign(ctypes.c_ulong(txrec), mkey[0])
+            if retv != 0:
+                mesgbox.showerror("Error", "Out of Memory")
+                self.glob.libtoktx.tx_trans_abort(ctypes.c_ulong(txrec))
+                return
+
         txbuf = ctypes.create_string_buffer(2048)
         txlen = self.glob.libtoktx.tx_trans_end(txbuf, 2048, ctypes.c_ulong(txrec))
 
