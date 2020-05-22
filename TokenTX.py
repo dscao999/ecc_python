@@ -252,9 +252,10 @@ class TokenTX:
         reqbuf = token.to_bytes(2, 'little')
         for keytup in self.glob.keylist:
             keyhash = keytup[1]
-            reqbuf += (len(keyhash) + 1).to_bytes(2, 'little')
-            reqbuf += keyhash.encode('utf8') + int(0).to_bytes(1, 'little')
-        reqbuf += int(0).to_bytes(2, 'little')
+            bytestr = audiorand.str2bin_b64(keyhash)
+            reqbuf += len(bytestr).to_bytes(1, 'little')
+            reqbuf += bytestr
+        reqbuf += int(0).to_bytes(1, 'little')
         reqbuf = len(reqbuf).to_bytes(4, 'little') + int(2).to_bytes(4, 'little') + reqbuf
         retry = 1
         while retry == 1:
@@ -273,21 +274,28 @@ class TokenTX:
                 acklen = int.from_bytes(ack[:4], 'little')
                 ackval = int.from_bytes(ack[4:8], 'little')
                 if ackval != 1:
+                    mesgbox.showerror("Logic Error", "Invalid Response Received")
                     break
                 pos = 8
                 while pos - 8 < acklen:
                     strlen = int.from_bytes(ack[pos:pos+1], 'little')
-                    keyhash = ack[pos+1:pos+strlen].decode('utf8').rstrip('\0')
-                    pos += strlen;
+                    bkeyhash = ack[pos+1:pos+strlen+1]
+                    keyhash = audiorand.bin2str_b64(bkeyhash).decode('utf-8')
+                    pos += strlen+1;
                     value = int.from_bytes(ack[pos:pos+8], 'little')
                     while value != 0:
-                        pos += 8;
-                        txid = ack[pos:pos+32]
-                        pos += 32
-                        kvlst.append({'value': value, 'key': keyhash, 'txid': txid})
+                        pos += 8
+                        strlen = int.from_bytes(ack[pos:pos+1], 'little')
+                        txid = ack[pos+1:pos+strlen+1]
+                        pos += strlen + 1
+                        vout_idx = int.from_bytes(ack[pos:pos+1], 'little')
+                        pos += 1
+                        kvlst.append({'value': value, 'key': keyhash, 'txid': txid, 'vout_idx': vout_idx})
+                        print("at vout index: {}".format(vout_idx))
                         litem = keyhash + ' ---> ' + str(value)
                         self.v_lbox.insert(tk.END, litem)
                         value = int.from_bytes(ack[pos:pos+8], 'little')
+                    pos += 8
                 retry = 0
             else:
                 if not mesgbox.askretrycancel("Error", "No response from server. Try Again?"):

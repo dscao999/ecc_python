@@ -8,7 +8,7 @@ import base64
 def bin2str_b64(byte_str):
     return base64.b64encode(byte_str)
 
-def str2bin_64(cstr):
+def str2bin_b64(cstr):
     return base64.b64decode(cstr)
 
 class SndRnd:
