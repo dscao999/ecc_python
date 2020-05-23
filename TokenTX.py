@@ -213,7 +213,7 @@ class TokenTX:
         mlst.sort(reverse=True, key=mlst_sort)
         print("Will transfer Token ID: {}, number: {}, payto: {}".format(token, value, payto))
 
-        idx = 1
+        idx = 0
         sval = 0
         for item in mlst:
             sval += item['value']
@@ -230,7 +230,7 @@ class TokenTX:
             mesgbox.showerror("Error", "Out of Memory");
             return
         txrec = int.from_bytes(lptr, byteorder='little')
-        for i in range(idx):
+        for i in range(idx+1):
             retv = self.glob.libtoktx.tx_trans_add(ctypes.c_ulong(txrec), mlst[i]['txid'], mlst[i]['vout_idx'])
             if retv != 0:
                 mesgbox.showerror("Error", "Out of Memory")
@@ -244,8 +244,9 @@ class TokenTX:
                 self.glob.libtoktx.tx_trans_abort(ctypes.c_ulong(txrec))
                 return
 
+        txbuf = ctypes.create_string_buffer(2048)
         keylst = self.glob.keylist
-        for i in range(idx):
+        for i in range(idx+1):
             pkey = mlst[i]['key']
             for mkey in keylst:
                 if mkey[1] == pkey:
@@ -254,13 +255,12 @@ class TokenTX:
                 mesgbox.showerror("Logic Error", "Internal Logic Error")
                 self.glob.libtoktx.tx_trans_abort(ctypes.c_ulong(txrec))
                 return
-            retv = self.glob.libtoktx.tx_trans_sign(ctypes.c_ulong(txrec), mkey[0])
+            retv = self.glob.libtoktx.tx_trans_sign(ctypes.c_ulong(txrec), txbuf, 2048, mkey[0], i)
             if retv != 0:
                 mesgbox.showerror("Error", "Out of Memory")
                 self.glob.libtoktx.tx_trans_abort(ctypes.c_ulong(txrec))
                 return
 
-        txbuf = ctypes.create_string_buffer(2048)
         txlen = self.glob.libtoktx.tx_trans_end(txbuf, 2048, ctypes.c_ulong(txrec))
 
 
