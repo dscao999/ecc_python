@@ -262,6 +262,8 @@ class TokenTX:
                 return
 
         txlen = self.glob.libtoktx.tx_trans_end(txbuf, 2048, ctypes.c_ulong(txrec))
+        tx = bytes(txbuf[:txlen])
+        self.send_txrec(tx)
 
 
     def search_tokens(self):

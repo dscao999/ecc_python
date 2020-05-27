@@ -44,10 +44,7 @@ class SList(tk.Frame):
 class GlobParam:
     def __init__(self, cfg_name):
         self.libtoktx = ctypes.CDLL("../lib/libtoktx.so")
-        self.libtoktx.ecc_init()
-        if self.libtoktx.alsa_init('') < 0:
-            printf("Cannot Initialize microphone, Exiting...")
-            sys.exit(1)
+        self.libtoktx.global_param_init(None, 1, 1)
         self.keylist = []
         self.keymod = 0
         self.mfont = mfont
