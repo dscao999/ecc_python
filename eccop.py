@@ -44,14 +44,16 @@ class SList(tk.Frame):
 class GlobParam:
     def __init__(self, cfg_name):
         self.libtoktx = ctypes.CDLL("../lib/libtoktx.so")
-        self.libtoktx.global_param_init(None, 1, 1)
+        self.libtoktx.ecc_init()
+        if self.libtoktx.alsa_init('') < 0:
+            printf("Cannot Initialize microphone, Exiting...")
+            sys.exit(1)
+        #self.libtoktx.global_param_init(None, 1, 1)
         self.keylist = []
         self.keymod = 0
         self.mfont = mfont
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         txsvr = socket.getaddrinfo("localhost", "6001", family=socket.AF_INET, type=socket.SOCK_DGRAM)
-        for item in txsvr:
-            print("type: {}, value: {}".format(type(item), item))
         self.sock = (sock, txsvr[0][4])
 
     def append_key(self, keystr):
@@ -121,6 +123,11 @@ class KeyFile(tk.Frame):
             self.publist.append_item(khash)
 
     def load_key(self):
+        if self.glob.keymod and mesgbox.askyesno("Confirm Action", \
+                "Keys has been modified, Save it?", master=self):
+            self.config(cursor="watch")
+            self.save_key()
+            self.config(cursor="")
         fname = filedialog.askopenfilename(parent=self, title='Load Key File',
                 filetypes=(("secret key", "*.pri"), ("all files", "*.*")))
         if len(fname) == 0:
