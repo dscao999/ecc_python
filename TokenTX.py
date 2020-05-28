@@ -50,29 +50,36 @@ class TokenID:
         sep = tk.Frame(optfrm, height=8, bg='black', bd=2, relief=tk.SUNKEN)
         sep.pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=5)
 
-        self.cursor = cursor
         vendor_query = ("SELECT * FROM vendors")
-        self.cursor.execute(vendor_query)
-        self.vendors = []
-        for (vid, name, descp) in self.cursor:
-            self.vendors.append({'id': vid, 'name': name, 'desc': descp})
-        self.vendrop = DropDown(optfrm, self.vendors)
-
         self.cat_query = ("SELECT id, name, descp FROM etoken_cat WHERE vendor_id = %(vendor_id)s")
-        vid = self.vendors[0]['id']
-        self.cursor.execute(self.cat_query, {'vendor_id': vid})
-        self.cats = []
-        for (catid, name, descp) in self.cursor:
-            self.cats.append({'id': catid, 'name': name, 'desc': descp})
-        self.catdrop = DropDown(optfrm, self.cats)
+        self.tok_query = ("SELECT id, name, descp FROM etoken_type WHERE cat_id = %(cat_id)s")
 
-        self.tok_query = ("SELECT * FROM etoken_type WHERE cat_id = %(cat_id)s")
-        cat_id = self.cats[0]['id']
-        self.cursor.execute(self.tok_query, {'cat_id': cat_id})
-        self.toks = []
-        for (tokid, name, descp, catid) in self.cursor:
-            self.toks.append({'id': tokid, 'name': name, 'desc': descp})
-        self.tokdrop = DropDown(optfrm, self.toks)
+        cursor.execute(vendor_query)
+        self.vendors = []
+        for (vid, name, descp) in cursor:
+            self.vendors.append({'id': vid, 'name': name, 'desc': descp, 'cats': []})
+        for item in self.vendors:
+            vid = item['id']
+            cursor.execute(self.cat_query, {'vendor_id': vid})
+            cats = []
+            for (catid, name, descp) in cursor:
+                cats.append({'id': catid, 'name': name, 'desc': descp, 'etokens': []})
+            item['cats'] = cats;
+        for v_item in self.vendors:
+            for c_item in v_item['cats']:
+                cat_id = c_item['id']
+                cursor.execute(self.tok_query, {'cat_id': cat_id})
+                toks = []
+                for (tokid, name, descp) in cursor:
+                    toks.append({'id': tokid, 'name': name, 'desc': descp})
+                c_item['etokens'] = toks
+
+        self.vendrop = DropDown(optfrm, self.vendors)
+        self.catdrop = DropDown(optfrm, self.vendors[0]['cats'])
+        self.tokdrop = DropDown(optfrm, self.vendors[0]['cats'][0]['etokens'])
+        self.ven_idx = 0
+        self.cat_idx = 0
+        self.tok_idx = 0
 
         self.vendrop.config(font=mfont, width=16)
         self.vendrop.pack(side=tk.LEFT)
@@ -86,35 +93,36 @@ class TokenID:
 
     def refresh_cat(self, *args):
         vname = self.vendrop.get_choice()
-        vid = 0
+        idx = 0
         for ent in self.vendors:
             if ent['name'] == vname:
                 vid = ent['id']
                 break
-
-        self.cursor.execute(self.cat_query, {'vendor_id': vid})
-        self.cats = []
-        for (catid, name, descp) in self.cursor:
-            self.cats.append({'id': catid, 'name': name, 'desc': descp})
-        self.catdrop.refresh_option(self.cats)
+            idx += 1
+        self.ven_idx = idx
+        cats = self.vendors[idx]['cats']
+        self.cat_idx = 0
+        self.catdrop.refresh_option(cats)
+        toks = self.vendors[idx]['cats'][0]['etokens']
+        self.tok_idx = 0
+        self.tokdrop.refresh_option(toks)
 
     def refresh_tok(self, *args):
         name = self.catdrop.get_choice()
-        catid = 0
-        for ent in self.cats:
+        idx = 0
+        for ent in self.vendors[self.ven_idx]['cats']:
             if ent['name'] == name:
                 catid = ent['id']
                 break
-
-        self.cursor.execute(self.tok_query, {'cat_id': catid})
-        self.toks = []
-        for (tokid, name, descp, catid) in self.cursor:
-            self.toks.append({'id': tokid, 'name': name, 'desc': descp})
-        self.tokdrop.refresh_option(self.toks)
+            idx += 1
+        self.cat_idx = idx
+        self.tok_idx = 0
+        toks = self.vendors[self.ven_idx]['cats'][idx]['etokens']
+        self.tokdrop.refresh_option(toks)
 
     def get_token_id(self):
         tokname = self.tokdrop.get_choice()
-        for ent in self.toks:
+        for ent in self.vendors[self.ven_idx]['cats'][self.cat_idx]['etokens']:
             if ent['name'] == tokname:
                 return ent['id']
         return 0
@@ -132,9 +140,9 @@ class TokenTX:
             mesgbox.showerror("Error", "Cannot connect to DB Server")
             sys.exit(1)
 
-        self.cursor = self.cnx.cursor()
+        cursor = self.cnx.cursor()
 
-        self.tokid = TokenID(parent, self.cursor, glob.mfont)
+        self.tokid = TokenID(parent, cursor, glob.mfont)
 
         mfrm = tk.Frame(parent)
         mfrm.pack(side=tk.TOP, fill=tk.X, expand=tk.YES)
