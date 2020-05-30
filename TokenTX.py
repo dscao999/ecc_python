@@ -18,6 +18,28 @@ mariadb_config = {
 
 tables = ["vendors", "etoken_cat", "etoken_type", "sales"]
 
+def send_txreq(socks, reqbuf, msecs=1):
+    retry = 1
+    ack = bytes()
+    while retry == 1:
+        socks[0].sendto(reqbuf, socks[1])
+        #input("Just a pause: ")
+        retry = 0
+        rep = 0
+        while rep < 10:
+            try:
+                ack = socks[0].recv(2048, socket.MSG_DONTWAIT)
+                break
+            except BlockingIOError:
+                pass
+            rep += 1
+            time.sleep(msecs)
+
+        if rep == 10:
+            if mesgbox.askretrycancel("Error", "No response from server. Try Again?"):
+                retry = 1
+    return ack
+
 class DropDown(tk.OptionMenu):
     def __init__(self, parent, optlist):
         self.vari = tk.StringVar()
@@ -38,7 +60,7 @@ class DropDown(tk.OptionMenu):
         self.vari.set(optlist[0]['name'])
 
 class TokenID:
-    def __init__(self, parent, cursor, mfont):
+    def __init__(self, parent, socks, mfont):
         frame = tk.Frame(parent)
         frame.pack(side=tk.TOP, expand=tk.YES, fill=tk.X)
 
@@ -50,29 +72,81 @@ class TokenID:
         sep = tk.Frame(optfrm, height=8, bg='black', bd=2, relief=tk.SUNKEN)
         sep.pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=5)
 
-        vendor_query = ("SELECT * FROM vendors")
         self.cat_query = ("SELECT id, name, descp FROM etoken_cat WHERE vendor_id = %(vendor_id)s")
         self.tok_query = ("SELECT id, name, descp FROM etoken_type WHERE cat_id = %(cat_id)s")
 
-        cursor.execute(vendor_query)
         self.vendors = []
-        for (vid, name, descp) in cursor:
-            self.vendors.append({'id': vid, 'name': name, 'desc': descp, 'cats': []})
-        for item in self.vendors:
-            vid = item['id']
-            cursor.execute(self.cat_query, {'vendor_id': vid})
+        reqbuf = int(0).to_bytes(4, 'little') + int(3).to_bytes(4, 'little')
+        vack = send_txreq(socks, reqbuf, msecs=0.2)
+        total_len = int.from_bytes(vack[:4], 'little')
+        ackval = int.from_bytes(vack[4:8], 'little')
+        vack = vack[8:]
+        while len(vack) > 0:
+            vid = int.from_bytes(vack[:2], 'little')
+            if vid == 0:
+                break
+            nlen = int.from_bytes(vack[2:3], 'little')
+            pos = 3
+            vname = vack[pos:pos+nlen].decode('utf-8')
+            pos += nlen
+            nlen = int.from_bytes(vack[pos:pos+1], 'little')
+            pos += 1
+            vdesc = vack[pos:pos+nlen].decode('utf-8')
+            pos += nlen
+            self.vendors.append({'id': vid, 'name': vname, 'desc': vdesc, 'cats': []})
+
+            reqbuf = int(2).to_bytes(4, 'little') + int(4).to_bytes(4, 'little') + vid.to_bytes(2, 'little')
+            catack = send_txreq(socks, reqbuf, msecs=0.2)
+            total_len = int.from_bytes(catack[:4], 'little')
+            ackval = int.from_bytes(catack[4:8], 'little')
+            catack = catack[8:]
             cats = []
-            for (catid, name, descp) in cursor:
-                cats.append({'id': catid, 'name': name, 'desc': descp, 'etokens': []})
-            item['cats'] = cats;
-        for v_item in self.vendors:
-            for c_item in v_item['cats']:
-                cat_id = c_item['id']
-                cursor.execute(self.tok_query, {'cat_id': cat_id})
+            while len(catack) > 0:
+                catid = int.from_bytes(catack[:2], 'little')
+                if catid == 0:
+                    break
+                nlen = int.from_bytes(catack[2:3], 'little')
+                catpos = 3
+                cname = catack[catpos:catpos+nlen].decode('utf-8')
+                catpos += nlen
+                nlen = int.from_bytes(catack[catpos:catpos+1], 'little')
+                catpos += 1
+                cat_desc = catack[catpos:catpos+nlen].decode('utf-8')
+                catpos += nlen
+                cats.append({'id': catid, 'name': cname, 'desc': cat_desc, 'etokens': []})
+
+                reqbuf = int(2).to_bytes(4, 'little') + int(5).to_bytes(4, 'little') + catid.to_bytes(2, 'little')
+                tokack = send_txreq(socks, reqbuf, msecs=0.2)
+                total_len = int.from_bytes(tokack[:4], 'little')
+                ackval = int.from_bytes(tokack[4:8], 'little')
                 toks = []
-                for (tokid, name, descp) in cursor:
-                    toks.append({'id': tokid, 'name': name, 'desc': descp})
-                c_item['etokens'] = toks
+                tokack = tokack[8:]
+                while len(tokack) > 0:
+                    tokid = int.from_bytes(tokack[:2], 'little')
+                    if tokid == 0:
+                        break
+                    nlen = int.from_bytes(tokack[2:3], 'little')
+                    tokpos = 3
+                    tokname = tokack[tokpos:tokpos+nlen].decode('utf-8')
+                    tokpos += nlen
+                    nlen = int.from_bytes(tokack[tokpos:tokpos+1], 'little')
+                    tokpos += 1
+                    tokdesc = tokack[tokpos:tokpos+nlen].decode('utf-8')
+                    tokpos += nlen
+                    if (tokpos & 1) == 1:
+                        tokpos += 1
+                    toks.append({'id': tokid, 'name': tokname, 'desc': tokdesc})
+                    tokack = tokack[tokpos:]
+
+                cats[-1]['etokens'] = toks
+                if (catpos & 1) == 1:
+                    catpos += 1
+                catack = catack[catpos:]
+
+            self.vendors[-1]['cats'] = cats
+            if (pos & 1) == 1:
+                pos += 1
+            vack = vack[pos:]
 
         self.vendrop = DropDown(optfrm, self.vendors)
         self.catdrop = DropDown(optfrm, self.vendors[0]['cats'])
@@ -127,22 +201,13 @@ class TokenID:
                 return ent['id']
         return 0
 
-
 class TokenTX:
     def __init__(self, parent, glob):
         self.glob = glob
         self.parent = parent
         self.asset = {'token': 0, 'by_key': []}
 
-        try:
-            self.cnx = mariadb.connect(**mariadb_config)
-        except mariadb.Error:
-            mesgbox.showerror("Error", "Cannot connect to DB Server")
-            sys.exit(1)
-
-        cursor = self.cnx.cursor()
-
-        self.tokid = TokenID(parent, cursor, glob.mfont)
+        self.tokid = TokenID(parent, glob.sock, glob.mfont)
 
         mfrm = tk.Frame(parent)
         mfrm.pack(side=tk.TOP, fill=tk.X, expand=tk.YES)
