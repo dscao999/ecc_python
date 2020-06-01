@@ -1,7 +1,6 @@
 import tkinter as tk
 import tkinter.messagebox as mesgbox
 import sys
-import mysql.connector as mariadb
 import CopyListbox
 from tkinter import simpledialog
 import audiorand
