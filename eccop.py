@@ -45,13 +45,10 @@ class GlobParam:
     def __init__(self, cfg_name):
         self.libtoktx = ctypes.CDLL("../lib/libtoktx.so")
         self.libtoktx.ecc_init()
-        if self.libtoktx.alsa_init('') < 0:
-            printf("Cannot Initialize microphone, Exiting...")
-            sys.exit(1)
-        #self.libtoktx.global_param_init(None, 1, 1)
         self.keylist = []
         self.keymod = 0
         self.mfont = mfont
+        self.mernd = audiorand.SndRnd()
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         txsvr = socket.getaddrinfo("localhost", "6001", family=socket.AF_INET, type=socket.SOCK_DGRAM)
         self.sock = (sock, txsvr[0][4])
@@ -66,11 +63,10 @@ class GlobParam:
     
     def generate_key(self):
         keystr = bytes(ctypes.create_string_buffer(96))
-        if self.libtoktx.ecc_genkey(keystr, 5) < 0:
-            print("Cannot generate a random")
-            return None
-        else:
-            return self.append_key(keystr)
+        rnd = self.mernd.ecc256_random(5);
+        while self.libtoktx.ecc_genkey_py(keystr, rnd) == 0:
+            rnd = self.mernd.ecc256_random(5)
+        return self.append_key(keystr)
 
     def clear_key(self):
         self.keylist.clear()
