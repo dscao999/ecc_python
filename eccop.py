@@ -73,11 +73,10 @@ class GlobParam:
         self.keymod = 0
 
     def save_key(self, fname, passwd):
-        appstr = ctypes.create_string_buffer(32)
         aes = AES.new(passwd, AES.MODE_ECB)
         ofp = open(fname, 'wb')
         for keystr in self.keylist:
-            self.libtoktx.noise_random(appstr, 1)
+            appstr = self.mernd.ecc256_random(1)
             pad = bytes(appstr[:12])
             plain = keystr[0][:32] + pad
             crc32 = self.libtoktx.crc32(plain, len(plain))
