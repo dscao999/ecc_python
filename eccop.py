@@ -62,10 +62,11 @@ class GlobParam:
         return pkeyhash
     
     def generate_key(self):
-        keystr = bytes(ctypes.create_string_buffer(96))
+        keystr = bytes(ctypes.create_string_buffer(96, '\0x0'))
         rnd = self.mernd.ecc256_random(5);
-        while self.libtoktx.ecc_genkey_py(keystr, rnd) == 0:
-            rnd = self.mernd.ecc256_random(5)
+        gotone = self.libtoktx.ecc_genkey(keystr);
+        if gotone != 0:
+            mesgbox.showerror("Error", "Cannot Get Enough Random Bits");
         return self.append_key(keystr)
 
     def clear_key(self):
