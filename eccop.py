@@ -6,8 +6,7 @@ import tkinter as tk
 import tkinter.filedialog as filedialog
 import tkinter.messagebox as mesgbox
 from Crypto.Cipher import AES
-import Crypto.Random as random
-import audiorand
+import hashlib
 import ctypes
 import TokenTX
 import CopyListbox
@@ -48,7 +47,6 @@ class GlobParam:
         self.keylist = []
         self.keymod = 0
         self.mfont = mfont
-        self.mernd = audiorand.SndRnd()
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         txsvr = socket.getaddrinfo("localhost", "6001", family=socket.AF_INET, type=socket.SOCK_DGRAM)
         self.sock = (sock, txsvr[0][4])
@@ -63,7 +61,6 @@ class GlobParam:
     
     def generate_key(self):
         keystr = bytes(ctypes.create_string_buffer(96, '\0x0'))
-        rnd = self.mernd.ecc256_random(5);
         gotone = self.libtoktx.ecc_genkey(keystr);
         if gotone != 0:
             mesgbox.showerror("Error", "Cannot Get Enough Random Bits");
@@ -77,9 +74,9 @@ class GlobParam:
         aes = AES.new(passwd, AES.MODE_ECB)
         ofp = open(fname, 'wb')
         for keystr in self.keylist:
-            appstr = self.mernd.ecc256_random(1)
-            pad = bytes(appstr[:12])
-            plain = keystr[0][:32] + pad
+            pad = ctypes.create_string_buffer(12, '\000')
+            self.libtoktx.rand32bytes(pad, 12, 0)
+            plain = keystr[0][:32] + bytes(pad)
             crc32 = self.libtoktx.crc32(plain, len(plain))
             if (crc32 < 0):
                 crc32 += 2**32
@@ -128,7 +125,7 @@ class KeyFile(tk.Frame):
                 filetypes=(("secret key", "*.pri"), ("all files", "*.*")))
         if len(fname) == 0:
             return
-        mh = audiorand.hashlib.new('ripemd160')
+        mh = hashlib.new('ripemd160')
         mh.update(self.passwd_str.get().encode('utf-8'))
         passwd = mh.digest()
         khashs = self.glob.load_key(fname, passwd[:16])
@@ -181,7 +178,7 @@ class KeyFile(tk.Frame):
                 filetypes=(("secret key", "*.pri"), ("all files", "*.*")))
         if len(fname) == 0:
             return
-        mh = audiorand.hashlib.new('ripemd160')
+        mh = hashlib.new('ripemd160')
         mh.update(self.passwd_str.get().encode('utf-8'))
         passwd = mh.digest()
         self.glob.save_key(fname, passwd[:16])
