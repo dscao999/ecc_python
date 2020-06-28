@@ -11,6 +11,8 @@ import ctypes
 import TokenTX
 import CopyListbox
 import socket
+import configparser
+import pathlib
 
 mfont = ('courier', 16, 'bold')
 
@@ -42,14 +44,28 @@ class SList(tk.Frame):
 
 class GlobParam:
     def __init__(self, cfg_name):
-        self.libtoktx = ctypes.CDLL("../lib/libtoktx.so")
+        self.config = configparser.ConfigParser()
+        self.config['global'] = {}
+        self.config['server'] = {}
+        if len(cfg_name) > 0:
+            self.config.read(cfg_name)
+
+        melib = self.config['global'].get('library', './libtoktx.so')
+        font = self.config['global'].get('font', 'courier')
+        font_size = int(self.config['global'].get('font_size', '16'))
+        font_style = self.config['global'].get('font_style', 'bold')
+        self.libtoktx = ctypes.CDLL(melib)
         self.libtoktx.ecc_init()
         self.keylist = []
         self.keymod = 0
-        self.mfont = mfont
+        self.mfont = (font, font_size, font_style)
+
+        server = self.config['server'].get('host', '127.0.0.1')
+        sport = self.config['server'].get('port', '6001')
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        txsvr = socket.getaddrinfo("localhost", "6001", family=socket.AF_INET, type=socket.SOCK_DGRAM)
-        self.sock = (sock, txsvr[0][4])
+        txsvr = socket.getaddrinfo(server, sport, family=socket.AF_INET, type=socket.SOCK_DGRAM)
+        sock.setblocking(0)
+        self.sock = {'sock': sock, 'sockaddr': txsvr[0][4]}
 
     def append_key(self, keystr):
         pkeyhash = ctypes.create_string_buffer(b'\000', 48)
@@ -195,12 +211,19 @@ class KeyFile(tk.Frame):
 if __name__ == "__main__":
     def ttransfer():
         neww = tk.Toplevel(root)
-        token_op = TokenTX.TokenTX(neww, keyfile.glob)
         neww.title("Token Transfer")
+        try:
+            token_op = TokenTX.TokenTX(neww, keyfile.glob)
+        except:
+            neww.destroy()
         
-    fname=os.getcwd() + '/ecc256_key.pri'
+    fname=os.getcwd() + '/etoken.ini'
     if len(sys.argv) > 1:
         fname = sys.argv[1]
+    if not pathlib.Path(fname).exists():
+        print("Warning: Configuration not exit {}".format(fname))
+        fname = ''
+
 
     root = tk.Tk()
     root.title(sys.argv[0])
@@ -209,7 +232,7 @@ if __name__ == "__main__":
     fp1.pack(side=tk.TOP, expand=tk.YES, fill=tk.X);
     fp2 = tk.Frame(root)
     fp2.pack(side=tk.BOTTOM, expand=tk.YES, fill=tk.X);
-    glob = GlobParam('')
+    glob = GlobParam(fname)
     keyfile = KeyFile(fp1, glob)
 
     tk.Button(fp2, text="Token Transfer", font=mfont,

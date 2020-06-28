@@ -21,13 +21,13 @@ def send_txreq(socks, reqbuf, msecs=1):
     retry = 1
     ack = bytes()
     while retry == 1:
-        socks[0].sendto(reqbuf, socks[1])
+        socks['sock'].sendto(reqbuf, socks['sockaddr'])
         #input("Just a pause: ")
         retry = 0
         rep = 0
         while rep < 10:
             try:
-                ack = socks[0].recv(2048, socket.MSG_DONTWAIT)
+                ack = socks['sock'].recv(2048)
                 break
             except BlockingIOError:
                 pass
@@ -77,6 +77,8 @@ class TokenID:
         self.vendors = []
         reqbuf = int(0).to_bytes(4, 'little') + int(3).to_bytes(4, 'little')
         vack = send_txreq(socks, reqbuf, msecs=0.2)
+        if len(vack) == 0:
+            raise Exception("Cannot Contact Server")
         total_len = int.from_bytes(vack[:4], 'little')
         ackval = int.from_bytes(vack[4:8], 'little')
         vack = vack[8:]
@@ -96,6 +98,8 @@ class TokenID:
 
             reqbuf = int(2).to_bytes(4, 'little') + int(4).to_bytes(4, 'little') + vid.to_bytes(2, 'little')
             catack = send_txreq(socks, reqbuf, msecs=0.2)
+            if len(catack) == 0:
+                raise Exception('Cannot Contact Server')
             total_len = int.from_bytes(catack[:4], 'little')
             ackval = int.from_bytes(catack[4:8], 'little')
             catack = catack[8:]
@@ -116,6 +120,8 @@ class TokenID:
 
                 reqbuf = int(2).to_bytes(4, 'little') + int(5).to_bytes(4, 'little') + catid.to_bytes(2, 'little')
                 tokack = send_txreq(socks, reqbuf, msecs=0.2)
+                if len(tokack) == 0:
+                    raise Exception("Cannot Contact Server")
                 total_len = int.from_bytes(tokack[:4], 'little')
                 ackval = int.from_bytes(tokack[4:8], 'little')
                 toks = []
@@ -206,7 +212,10 @@ class TokenTX:
         self.parent = parent
         self.asset = {'token': 0, 'by_key': []}
 
-        self.tokid = TokenID(parent, glob.sock, glob.mfont)
+        try:
+            self.tokid = TokenID(parent, glob.sock, glob.mfont)
+        except:
+            raise Exception("Abort")
 
         mfrm = tk.Frame(parent)
         mfrm.pack(side=tk.TOP, fill=tk.X, expand=tk.YES)
@@ -355,11 +364,11 @@ class TokenTX:
         reqbuf = len(reqbuf).to_bytes(4, 'little') + int(2).to_bytes(4, 'little') + reqbuf
         retry = 1
         while retry == 1:
-            self.glob.sock[0].sendto(reqbuf, self.glob.sock[1])
+            self.glob.sock['sock'].sendto(reqbuf, self.glob.sock['sockaddr'])
             rep = 0
             while rep < 3:
                 try:
-                    ack = self.glob.sock[0].recv(2048, socket.MSG_DONTWAIT)
+                    ack = self.glob.sock['sock'].recv(2048)
                     break
                 except BlockingIOError:
                     pass
@@ -411,12 +420,12 @@ class TokenTX:
         packet = len(txrec).to_bytes(4, byteorder='little') + (1).to_bytes(4, byteorder='little') + txrec
         tagain = 1
         while tagain:
-            self.glob.sock[0].sendto(packet, self.glob.sock[1])
+            self.glob.sock['sock'].sendto(packet, self.glob.sock['sockaddr'])
             rep = 0
             while rep < 10:
                 time.sleep(1)
                 try:
-                    ack = self.glob.sock[0].recv(2048, socket.MSG_DONTWAIT)
+                    ack = self.glob.sock['sock'].recv(2048)
                     break
                 except BlockingIOError:
                     pass
