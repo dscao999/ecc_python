@@ -5,7 +5,6 @@ import sys
 import tkinter as tk
 import tkinter.filedialog as filedialog
 import tkinter.messagebox as mesgbox
-from Crypto.Cipher import AES
 import hashlib
 import ctypes
 import TokenTX

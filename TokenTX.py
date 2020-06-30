@@ -3,11 +3,11 @@ import tkinter.messagebox as mesgbox
 import sys
 import CopyListbox
 from tkinter import simpledialog
-import audiorand
 import ctypes
 import hashlib
 import time
 import socket
+import base64
 
 mariadb_config = {
         'user': 'dscao',
@@ -16,6 +16,12 @@ mariadb_config = {
 }
 
 tables = ["vendors", "etoken_cat", "etoken_type", "sales"]
+
+def bin2str_b64(byte_str):
+    return base64.b64encode(byte_str)
+
+def str2bin_b64(cstr):
+    return base64.b64decode(cstr)
 
 def send_txreq(socks, reqbuf, msecs=1):
     retry = 1
@@ -304,7 +310,7 @@ class TokenTX:
         if sval < value:
             mesgbox.showerror("Logic Error", "Internal Logic Error")
             return
-        owner = audiorand.str2bin_b64(payto.encode('utf-8'))
+        owner = str2bin_b64(payto.encode('utf-8'))
         lptr = ctypes.create_string_buffer(8)
         retv = self.glob.libtoktx.tx_trans_begin(lptr, token, ctypes.c_ulong(value), owner)
         if retv != 0:
@@ -318,7 +324,7 @@ class TokenTX:
                 self.glob.libtoktx.tx_trans_abort(ctypes.c_ulong(txrec))
                 return
         if sval > value:
-            owner = audiorand.str2bin_b64(mlst[0]['key'].encode('utf-8'))
+            owner = str2bin_b64(mlst[0]['key'].encode('utf-8'))
             retv = self.glob.libtoktx.tx_trans_sup(ctypes.c_ulong(txrec), ctypes.c_ulong(sval-value), owner)
             if retv != 0:
                 mesgbox.showerror("Error", "Out of Memory")
@@ -357,7 +363,7 @@ class TokenTX:
         reqbuf = token.to_bytes(2, 'little')
         for keytup in self.glob.keylist:
             keyhash = keytup[1]
-            bytestr = audiorand.str2bin_b64(keyhash)
+            bytestr = str2bin_b64(keyhash)
             reqbuf += len(bytestr).to_bytes(1, 'little')
             reqbuf += bytestr
         reqbuf += int(0).to_bytes(1, 'little')
@@ -385,7 +391,7 @@ class TokenTX:
                 while pos - 8 < acklen:
                     strlen = int.from_bytes(ack[pos:pos+1], 'little')
                     bkeyhash = ack[pos+1:pos+strlen+1]
-                    keyhash = audiorand.bin2str_b64(bkeyhash).decode('utf-8')
+                    keyhash = bin2str_b64(bkeyhash).decode('utf-8')
                     pos += strlen+1;
                     value = int.from_bytes(ack[pos:pos+8], 'little')
                     while value != 0:
