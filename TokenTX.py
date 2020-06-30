@@ -463,15 +463,22 @@ class TokenTX:
         if value > 0 and len(recipient) == 28 and len(usekey) == 28:
             print("Will create Token ID: {}, number: {} for {}".format(token, value, recipient))
             print("Will use key: {}".format(usekey))
-        for trikey in self.glob.keylist:
-            if trikey[1] == usekey:
-                txrec_buf = ctypes.create_string_buffer(2048);
-                retv = self.glob.libtoktx.tx_create_token(txrec_buf, 2048, ctypes.c_int(token),
-                        ctypes.c_ulong(value), ctypes.c_int(0), recipient, trikey[0])
-                if retv > 0:
-                    txrec = bytes(txrec_buf[:retv])
-                    self.send_txrec(txrec)
-                break
+            for trikey in self.glob.keylist:
+                if trikey[1] == usekey:
+                    txrec_buf = ctypes.create_string_buffer(2048);
+                    retv = self.glob.libtoktx.tx_create_token(txrec_buf, 2048, ctypes.c_int(token),
+                            ctypes.c_ulong(value), ctypes.c_int(0), recipient, trikey[0])
+                    if retv > 0:
+                        txrec = bytes(txrec_buf[:retv])
+                        self.send_txrec(txrec)
+                    break
+        else:
+            if value <= 0:
+                mesgbox.showerror("Error", "The value must be greater than 0");
+            if len(recipient) != 28:
+                mesgbox.showerror("Error", "The receipient must be specified");
+            if len(usekey) != 28:
+                mesgbox.showerror("Error", "The key used to create token is missing");
 
 
 def show_vid():
