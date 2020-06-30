@@ -87,18 +87,20 @@ class GlobParam:
         self.keymod = 0
 
     def save_key(self, fname, passwd):
-        aes = AES.new(passwd, AES.MODE_ECB)
+        aeskey_buf = ctypes.create_string_buffer(176)
+        self.libtoktx.aes_reset(aeskey_buf, passwd)
+        pad = ctypes.create_string_buffer(12)
+        secret = ctypes.create_string_buffer(48)
         ofp = open(fname, 'wb')
         for keystr in self.keylist:
-            pad = ctypes.create_string_buffer(12, '\000')
             self.libtoktx.rand32bytes(pad, 12, 0)
             plain = keystr[0][:32] + bytes(pad)
             crc32 = self.libtoktx.crc32(plain, len(plain))
             if (crc32 < 0):
                 crc32 += 2**32
             plain += crc32.to_bytes(4, 'big')
-            scrtext = aes.encrypt(plain)
-            ofp.write(scrtext)
+            self.libtoktx.dsaes(aeskey_buf, plain, secret, 48)
+            ofp.write(bytes(secret))
         ofp.close()
         self.keymod = 0
 
