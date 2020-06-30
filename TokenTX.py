@@ -456,6 +456,7 @@ class TokenTX:
 
 
     def create_token(self):
+        sent = 0
         token = self.tokid.get_token_id()
         value = int(self.value_str.get())
         recipient = self.recipient.get().encode('utf-8')
@@ -471,6 +472,7 @@ class TokenTX:
                     if retv > 0:
                         txrec = bytes(txrec_buf[:retv])
                         self.send_txrec(txrec)
+                        sent = 1
                     break
         else:
             if value <= 0:
@@ -479,6 +481,8 @@ class TokenTX:
                 mesgbox.showerror("Error", "The receipient must be specified");
             if len(usekey) != 28:
                 mesgbox.showerror("Error", "The key used to create token is missing");
+        if sent == 0:
+            mesgbox.showerror("Error", "Cannot create Token")
 
 
 def show_vid():
