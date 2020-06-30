@@ -104,13 +104,15 @@ class GlobParam:
 
     def load_key(self, fname, passwd):
         self.clear_key()
-        aes = AES.new(passwd, AES.MODE_ECB)
+        aeskey_buf = ctypes.create_string_buffer(176)
+        self.libtoktx.aes_reset(aeskey_buf, passwd)
+        pla = ctypes.create_string_buffer(48)
         ifp = open(fname, 'rb')
         cip = ifp.read(48)
         khashs = []
         while cip:
-            pla = aes.decrypt(cip)
-            crc32 = self.libtoktx.crc32(pla, len(pla))
+            self.libtoktx.un_dsaes(aeskey_buf, cip, pla, 48)
+            crc32 = self.libtoktx.crc32(pla, 48)
             if crc32 != 0:
                 mesgbox.showerror("Error", "Invalid Password")
                 ifp.close()
