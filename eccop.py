@@ -83,6 +83,7 @@ class GlobParam:
         return self.append_key(keystr)
 
     def clear_key(self):
+        self.keylist_bak = self.keylist[:]
         self.keylist.clear()
         self.keymod = 0
 
@@ -149,6 +150,8 @@ class KeyFile(tk.Frame):
             self.publist.clearlist()
             for pkhash in khashs:
                 self.publist.append_item(pkhash)
+        else:
+            self.glob.keylist = self.glob.keylist_bak
 
     def __init__(self, parent, glob, width=32):
         super().__init__(parent)
