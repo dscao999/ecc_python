@@ -15,6 +15,36 @@ import pathlib
 
 mfont = ('courier', 16, 'bold')
 
+class PasswdInput(tk.Toplevel):
+    def onpwdentry(self, evt):
+        self.passwd = self.pwdbox.get()
+        self.destroy()
+
+    def onclick(self):
+        self.passwd = self.pwdbox.get()
+        self.destroy()
+
+    def __init__(self, parent, mfont, text="Please Input Passwd"):
+        tk.Toplevel.__init__(self, parent)
+        self.title(text)
+        topbar = tk.Frame(self)
+        topbar.pack(side=tk.TOP, fill=tk.X)
+        botbar = tk.Frame(self)
+        botbar.pack(side=tk.BOTTOM, fill=tk.Y)
+        tk.Label(topbar, text="Password:", font=mfont).pack(side=tk.LEFT)
+        passwd = ''
+        self.pwdbox = tk.Entry(topbar, show='*', font=mfont)
+        self.pwdbox.pack(side=tk.RIGHT)
+        tk.Button(botbar, command=self.onclick, text='OK', font=mfont).pack(side=tk.BOTTOM)
+        self.bind('<Return>', self.onpwdentry)
+
+    def show(self):
+        self.wm_deiconify()
+        self.pwdbox.focus_force()
+        self.wait_window()
+        return self.passwd
+
+
 class SList(tk.Frame):
     def clearlist(self):
         self.hbox.delete(0, tk.END)
@@ -84,7 +114,6 @@ class GlobParam:
     def clear_key(self):
         self.keylist_bak = self.keylist[:]
         self.keylist.clear()
-        self.keymod = 0
 
     def save_key(self, fname, passwd):
         aeskey_buf = ctypes.create_string_buffer(176)
@@ -118,7 +147,8 @@ class GlobParam:
             if crc32 != 0:
                 mesgbox.showerror("Error", "Invalid Password")
                 ifp.close()
-                self.clear_key()
+                self.keylist = self.keylist_bak[:]
+                self.keylist_bak.clear()
                 return khashs.clear()
             keystr = pla[:32]
             ecckey = bytes(ctypes.create_string_buffer(96))
@@ -145,16 +175,15 @@ class KeyFile(tk.Frame):
                 filetypes=(("secret key", "*.pri"), ("all files", "*.*")))
         if len(fname) == 0:
             return
+        passwd = PasswdInput(self, self.glob.mfont).show()
         mh = hashlib.new('ripemd160')
-        mh.update(self.passwd_str.get().encode('utf-8'))
+        mh.update(passwd.encode('utf-8'))
         passwd = mh.digest()
         khashs = self.glob.load_key(fname, passwd[:16])
         if khashs:
             self.publist.clearlist()
             for pkhash in khashs:
                 self.publist.append_item(pkhash)
-        else:
-            self.glob.keylist = self.glob.keylist_bak
 
     def __init__(self, parent, glob, width=32):
         super().__init__(parent)
@@ -172,14 +201,8 @@ class KeyFile(tk.Frame):
 
         row2 = tk.Frame(f1_1)
         row2.pack(side=tk.TOP, expand=tk.YES, fill=tk.X)
-        passlab = tk.Label(row2, text='  Passwd:', font=mfont)
-        passlab.pack(side=tk.LEFT)
-        self.passwd_str = tk.StringVar()
-        self.passwd_str.set('')
-        passtext = tk.Entry(row2, show="*", textvariable=self.passwd_str, width=width)
-        passtext.config(font=mfont)
-        passtext.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
-
+        passlab = tk.Label(row2, text='Key Management', font=mfont)
+        passlab.pack(side=tk.TOP)
 
         row4 = tk.Frame(f1_2)
         row4.pack(side=tk.BOTTOM, expand=tk.YES, fill=tk.X)
@@ -201,7 +224,16 @@ class KeyFile(tk.Frame):
         if len(fname) == 0:
             return
         mh = hashlib.new('ripemd160')
-        mh.update(self.passwd_str.get().encode('utf-8'))
+        passwd0 = PasswdInput(self, self.glob.mfont).show()
+        passwd1 = PasswdInput(self, self.glob.mfont, text="Renter Password").show()
+        while passwd0 != passwd1 and mesgbox.askretrycancel("Error", "Password Confirmation Failed!"):
+            passwd0 = PasswdInput(self, self.glob.mfont).show()
+            passwd1 = PasswdInput(self, self.glob.mfont, text="Renter Password").show()
+        if passwd0 != passwd1:
+            mesgbox.showwarning("Warning", "Keys Not Saved")
+            return
+
+        mh.update(passwd0.encode('utf-8'))
         passwd = mh.digest()
         self.glob.save_key(fname, passwd[:16])
 
