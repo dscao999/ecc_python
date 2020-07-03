@@ -77,9 +77,6 @@ class TokenID:
         sep = tk.Frame(optfrm, height=8, bg='black', bd=2, relief=tk.SUNKEN)
         sep.pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=5)
 
-        self.cat_query = ("SELECT id, name, descp FROM etoken_cat WHERE vendor_id = %(vendor_id)s")
-        self.tok_query = ("SELECT id, name, descp FROM etoken_type WHERE cat_id = %(cat_id)s")
-
         self.vendors = []
         reqbuf = int(0).to_bytes(4, 'little') + int(3).to_bytes(4, 'little')
         vack = send_txreq(socks, reqbuf, msecs=0.2)
@@ -89,11 +86,11 @@ class TokenID:
         ackval = int.from_bytes(vack[4:8], 'little')
         vack = vack[8:]
         while len(vack) > 0:
-            vid = int.from_bytes(vack[:2], 'little')
+            vid = int.from_bytes(vack[:4], 'little')
             if vid == 0:
                 break
-            nlen = int.from_bytes(vack[2:3], 'little')
-            pos = 3
+            nlen = int.from_bytes(vack[4:5], 'little')
+            pos = 5
             vname = vack[pos:pos+nlen].decode('utf-8')
             pos += nlen
             nlen = int.from_bytes(vack[pos:pos+1], 'little')
@@ -155,8 +152,8 @@ class TokenID:
                 catack = catack[catpos:]
 
             self.vendors[-1]['cats'] = cats
-            if (pos & 1) == 1:
-                pos += 1
+            if (pos & 3) != 0:
+                pos += (4 - (pos & 3))
             vack = vack[pos:]
 
         self.vendrop = DropDown(optfrm, self.vendors)
