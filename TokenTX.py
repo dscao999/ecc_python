@@ -99,7 +99,7 @@ class TokenID:
             pos += nlen
             self.vendors.append({'id': vid, 'name': vname, 'desc': vdesc, 'cats': []})
 
-            reqbuf = int(2).to_bytes(4, 'little') + int(4).to_bytes(4, 'little') + vid.to_bytes(2, 'little')
+            reqbuf = int(4).to_bytes(4, 'little') + int(4).to_bytes(4, 'little') + vid.to_bytes(4, 'little')
             catack = send_txreq(socks, reqbuf, msecs=0.2)
             if len(catack) == 0:
                 raise Exception('Cannot Contact Server')
@@ -108,11 +108,11 @@ class TokenID:
             catack = catack[8:]
             cats = []
             while len(catack) > 0:
-                catid = int.from_bytes(catack[:2], 'little')
+                catid = int.from_bytes(catack[:4], 'little')
                 if catid == 0:
                     break
-                nlen = int.from_bytes(catack[2:3], 'little')
-                catpos = 3
+                nlen = int.from_bytes(catack[4:5], 'little')
+                catpos = 5
                 cname = catack[catpos:catpos+nlen].decode('utf-8')
                 catpos += nlen
                 nlen = int.from_bytes(catack[catpos:catpos+1], 'little')
@@ -147,13 +147,15 @@ class TokenID:
                     tokack = tokack[tokpos:]
 
                 cats[-1]['etokens'] = toks
-                if (catpos & 1) == 1:
-                    catpos += 1
+                rem = catpos & 3
+                if rem != 0:
+                    catpos += (4 - rem)
                 catack = catack[catpos:]
 
             self.vendors[-1]['cats'] = cats
-            if (pos & 3) != 0:
-                pos += (4 - (pos & 3))
+            rem = pos & 3
+            if rem != 0:
+                pos += (4 - rem)
             vack = vack[pos:]
 
         self.vendrop = DropDown(optfrm, self.vendors)
