@@ -121,7 +121,7 @@ class TokenID:
                 catpos += nlen
                 cats.append({'id': catid, 'name': cname, 'desc': cat_desc, 'etokens': []})
 
-                reqbuf = int(2).to_bytes(4, 'little') + int(5).to_bytes(4, 'little') + catid.to_bytes(2, 'little')
+                reqbuf = int(4).to_bytes(4, 'little') + int(5).to_bytes(4, 'little') + catid.to_bytes(4, 'little')
                 tokack = send_txreq(socks, reqbuf, msecs=0.2)
                 if len(tokack) == 0:
                     raise Exception("Cannot Contact Server")
@@ -130,19 +130,20 @@ class TokenID:
                 toks = []
                 tokack = tokack[8:]
                 while len(tokack) > 0:
-                    tokid = int.from_bytes(tokack[:2], 'little')
+                    tokid = int.from_bytes(tokack[:4], 'little')
                     if tokid == 0:
                         break
-                    nlen = int.from_bytes(tokack[2:3], 'little')
-                    tokpos = 3
+                    nlen = int.from_bytes(tokack[4:5], 'little')
+                    tokpos = 5
                     tokname = tokack[tokpos:tokpos+nlen].decode('utf-8')
                     tokpos += nlen
                     nlen = int.from_bytes(tokack[tokpos:tokpos+1], 'little')
                     tokpos += 1
                     tokdesc = tokack[tokpos:tokpos+nlen].decode('utf-8')
                     tokpos += nlen
-                    if (tokpos & 1) == 1:
-                        tokpos += 1
+                    rem = tokpos & 3;
+                    if rem != 0:
+                        tokpos += (4 - rem)
                     toks.append({'id': tokid, 'name': tokname, 'desc': tokdesc})
                     tokack = tokack[tokpos:]
 
