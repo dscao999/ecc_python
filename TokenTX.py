@@ -65,7 +65,8 @@ class DropDown(tk.OptionMenu):
         self.vari.set(optlist[0]['name'])
 
 class TokenID:
-    def __init__(self, parent, socks, mfont):
+    def __init__(self, parent, socks, mfont, ekid):
+        self.ekid = ekid
         frame = tk.Frame(parent)
         frame.pack(side=tk.TOP, expand=tk.YES, fill=tk.X)
 
@@ -175,6 +176,9 @@ class TokenID:
 
         self.vendrop.vari.trace("w", self.refresh_cat)
         self.catdrop.vari.trace("w", self.refresh_tok)
+        self.tokdrop.vari.trace("w", self.read_token)
+
+        self.ekid.set(str(self.get_token_id()))
 
     def refresh_cat(self, *args):
         vname = self.vendrop.get_choice()
@@ -205,6 +209,9 @@ class TokenID:
         toks = self.vendors[self.ven_idx]['cats'][idx]['etokens']
         self.tokdrop.refresh_option(toks)
 
+    def read_token(self, *args):
+        self.ekid.set(str(self.get_token_id()))
+
     def get_token_id(self):
         tokname = self.tokdrop.get_choice()
         for ent in self.vendors[self.ven_idx]['cats'][self.cat_idx]['etokens']:
@@ -217,9 +224,10 @@ class TokenTX:
         self.glob = glob
         self.parent = parent
         self.asset = {'token': 0, 'by_key': []}
+        self.ekid = tk.StringVar()
 
         try:
-            self.tokid = TokenID(parent, glob.sock, glob.mfont)
+            self.tokid = TokenID(parent, glob.sock, glob.mfont, self.ekid)
         except:
             raise Exception("Abort")
 
@@ -229,9 +237,13 @@ class TokenTX:
         ufrm = tk.Frame(mfrm)
         ufrm.pack(side=tk.TOP, fill=tk.X, expand=tk.YES)
 
-        sbut = tk.Button(ufrm, text='Check', width=25, command=self.search_tokens)
+        ubar = tk.Frame(ufrm)
+        ubar.pack(side=tk.TOP, fill=tk.X, expand=tk.YES)
+        tk.Label(ubar, text='Token ID:', font=glob.mfont).pack(side=tk.LEFT)
+        sbut = tk.Button(ubar, text='Check', width=25, command=self.search_tokens)
         sbut.config(font=glob.mfont)
-        sbut.pack(side=tk.TOP)
+        sbut.pack(side=tk.RIGHT)
+        tk.Entry(ubar, textvariable=self.ekid, state='disabled', font=glob.mfont).pack(side=tk.TOP)
 
         sbar = tk.Scrollbar(ufrm)
         self.v_lbox = CopyListbox.CopyListbox(ufrm, relief=tk.SUNKEN, font=glob.mfont, width=46)
