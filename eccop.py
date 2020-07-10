@@ -74,15 +74,15 @@ class SList(tk.Frame):
 class GlobParam:
     def __init__(self, cfg_name):
         self.config = configparser.ConfigParser()
-        self.config['global'] = {}
+        self.config['client'] = {}
         self.config['server'] = {}
         if len(cfg_name) > 0:
             self.config.read(cfg_name)
 
-        melib = self.config['global'].get('library', './libtoktx.so')
-        font = self.config['global'].get('font', 'courier')
-        font_size = int(self.config['global'].get('font_size', '16'))
-        font_style = self.config['global'].get('font_style', 'bold')
+        melib = self.config['client'].get('library', './libtoktx.so')
+        font = self.config['client'].get('font', 'courier')
+        font_size = int(self.config['client'].get('font_size', '16'))
+        font_style = self.config['client'].get('font_style', 'bold')
         self.libtoktx = ctypes.CDLL(melib)
         self.libtoktx.ecc_init()
         self.keylist = []
