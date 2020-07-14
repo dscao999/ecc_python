@@ -73,24 +73,25 @@ class SList(tk.Frame):
 
 class GlobParam:
     def __init__(self, cfg_name):
-        self.config = configparser.ConfigParser()
-        self.config['client'] = {}
-        self.config['server'] = {}
+        mconfig = configparser.ConfigParser()
+        mconfig['client'] = {}
+        mconfig['server'] = {}
         if len(cfg_name) > 0:
-            self.config.read(cfg_name)
+            mconfig.read(cfg_name)
 
-        melib = self.config['client'].get('library', './libtoktx.so')
-        font = self.config['client'].get('font', 'courier')
-        font_size = int(self.config['client'].get('font_size', '16'))
-        font_style = self.config['client'].get('font_style', 'bold')
+        melib = mconfig['client'].get('library', './libtoktx.so')
+        font = mconfig['client'].get('font', 'courier')
+        font_size = int(mconfig['client'].get('font_size', '16'))
+        font_style = mconfig['client'].get('font_style', 'bold')
         self.libtoktx = ctypes.CDLL(melib)
         self.libtoktx.ecc_init()
         self.keylist = []
         self.keymod = 0
         self.mfont = (font, font_size, font_style)
+        self.tries = int(mconfig['client'].get('tries', '25'))
 
-        server = self.config['server'].get('host', '127.0.0.1')
-        sport = self.config['server'].get('port', '6001')
+        server = mconfig['server'].get('host', '127.0.0.1')
+        sport = mconfig['server'].get('port', '6001')
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         txsvr = socket.getaddrinfo(server, sport, family=socket.AF_INET, type=socket.SOCK_DGRAM)
         sock.setblocking(0)

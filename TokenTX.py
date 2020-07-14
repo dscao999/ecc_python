@@ -23,7 +23,7 @@ def bin2str_b64(byte_str):
 def str2bin_b64(cstr):
     return base64.b64decode(cstr)
 
-def send_txreq(socks, reqbuf, msecs=1):
+def send_txreq(socks, reqbuf, tries=25):
     retry = 1
     ack = bytes()
     while retry == 1:
@@ -31,16 +31,16 @@ def send_txreq(socks, reqbuf, msecs=1):
         #input("Just a pause: ")
         retry = 0
         rep = 0
-        while rep < 10:
+        while rep < tries:
             try:
                 ack = socks['sock'].recv(2048)
                 break
             except BlockingIOError:
                 pass
             rep += 1
-            time.sleep(msecs)
+            time.sleep(0.1)
 
-        if rep == 10:
+        if rep == tries:
             if mesgbox.askretrycancel("Error", "No response from server. Try Again?"):
                 retry = 1
     return ack
@@ -65,7 +65,9 @@ class DropDown(tk.OptionMenu):
         self.vari.set(optlist[0]['name'])
 
 class TokenID:
-    def __init__(self, parent, socks, mfont, ekid):
+    def __init__(self, parent, glob, ekid):
+        socks = glob.sock
+        mfont = glob.mfont
         self.ekid = ekid
         frame = tk.Frame(parent)
         frame.pack(side=tk.TOP, expand=tk.YES, fill=tk.X)
@@ -80,7 +82,7 @@ class TokenID:
 
         self.vendors = []
         reqbuf = int(0).to_bytes(4, 'little') + int(3).to_bytes(4, 'little')
-        vack = send_txreq(socks, reqbuf, msecs=0.2)
+        vack = send_txreq(socks, reqbuf, tries=glob.tries)
         if len(vack) == 0:
             raise Exception("Cannot Contact Server")
         total_len = int.from_bytes(vack[:4], 'little')
@@ -101,7 +103,7 @@ class TokenID:
             self.vendors.append({'id': vid, 'name': vname, 'desc': vdesc, 'cats': []})
 
             reqbuf = int(4).to_bytes(4, 'little') + int(4).to_bytes(4, 'little') + vid.to_bytes(4, 'little')
-            catack = send_txreq(socks, reqbuf, msecs=0.2)
+            catack = send_txreq(socks, reqbuf, tries=glob.tries)
             if len(catack) == 0:
                 raise Exception('Cannot Contact Server')
             total_len = int.from_bytes(catack[:4], 'little')
@@ -123,7 +125,7 @@ class TokenID:
                 cats.append({'id': catid, 'name': cname, 'desc': cat_desc, 'etokens': []})
 
                 reqbuf = int(4).to_bytes(4, 'little') + int(5).to_bytes(4, 'little') + catid.to_bytes(4, 'little')
-                tokack = send_txreq(socks, reqbuf, msecs=0.2)
+                tokack = send_txreq(socks, reqbuf, tries=glob.tries)
                 if len(tokack) == 0:
                     raise Exception("Cannot Contact Server")
                 total_len = int.from_bytes(tokack[:4], 'little')
@@ -227,7 +229,7 @@ class TokenTX:
         self.ekid = tk.StringVar()
 
         try:
-            self.tokid = TokenID(parent, glob.sock, glob.mfont, self.ekid)
+            self.tokid = TokenID(parent, glob, self.ekid)
         except:
             raise Exception("Abort")
 
@@ -362,7 +364,7 @@ class TokenTX:
 
         txlen = self.glob.libtoktx.tx_trans_end(txbuf, 2048, ctypes.c_ulonglong(txrec))
         tx = bytes(txbuf[:txlen])
-        self.send_txrec(tx)
+        self.send_txrec(tx, self.glob.tries)
 
 
     def search_tokens(self):
@@ -384,16 +386,16 @@ class TokenTX:
         while retry == 1:
             self.glob.sock['sock'].sendto(reqbuf, self.glob.sock['sockaddr'])
             rep = 0
-            while rep < 3:
+            while rep < self.glob.tries:
                 try:
                     ack = self.glob.sock['sock'].recv(2048)
                     break
                 except BlockingIOError:
                     pass
                 rep += 1
-                time.sleep(1)
+                time.sleep(0.1)
 
-            if rep < 3:
+            if rep < self.glob.tries:
                 acklen = int.from_bytes(ack[:4], 'little')
                 ackval = int.from_bytes(ack[4:8], 'little')
                 if ackval != 1:
@@ -427,7 +429,7 @@ class TokenTX:
         for item in self.asset['by_key']:
             print("Key: {}, Value: {}".format(item['key'], item['value']))
 
-    def send_txrec(self, txrec):
+    def send_txrec(self, txrec, tries=25):
         txf = open("/tmp/txtoken.dat", "wb")
         txf.write(txrec)
         txf.close()
@@ -440,8 +442,8 @@ class TokenTX:
         while tagain:
             self.glob.sock['sock'].sendto(packet, self.glob.sock['sockaddr'])
             rep = 0
-            while rep < 10:
-                time.sleep(1)
+            while rep < tries:
+                time.sleep(0.1)
                 try:
                     ack = self.glob.sock['sock'].recv(2048)
                     break
@@ -449,7 +451,7 @@ class TokenTX:
                     pass
                 rep += 1
 
-            if rep == 10:
+            if rep == tries:
                 askbox = mesgbox.askquestion("Error", "No response from server, Try again?")
                 if askbox != 'yes':
                     tagain = 0
@@ -483,7 +485,7 @@ class TokenTX:
                             ctypes.c_ulonglong(value), ctypes.c_int(0), recipient, trikey[0])
                     if retv > 0:
                         txrec = bytes(txrec_buf[:retv])
-                        self.send_txrec(txrec)
+                        self.send_txrec(txrec, self.glob.tries)
                         sent = 1
                     break
         else:
