@@ -224,6 +224,9 @@ class KeyFile(tk.Frame):
                 filetypes=(("secret key", "*.pri"), ("all files", "*.*")))
         if len(fname) == 0:
             return
+        negpos = fname.rfind('.')
+        if negpos == -1 or negpos + 4 < len(fname):
+            fname += '.pri'
         mh = hashlib.new('ripemd160')
         passwd0 = PasswdInput(self, self.glob.mfont).show()
         passwd1 = PasswdInput(self, self.glob.mfont, text="Renter Password").show()
