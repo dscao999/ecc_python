@@ -27,6 +27,8 @@ def send_txreq(socks, reqbuf, tries=25):
     retry = 1
     ack = bytes()
     while retry == 1:
+        ctm = int(time.monotonic() * 1000)
+        reqbuf = ctm.to_bytes(8, 'little') + reqbuf
         socks['sock'].sendto(reqbuf, socks['sockaddr'])
         retry = 0
         rep = 0
@@ -34,15 +36,16 @@ def send_txreq(socks, reqbuf, tries=25):
             time.sleep(0.2)
             try:
                 ack = socks['sock'].recv(2048)
-                break
+                if int.from_bytes(ack[:8], 'little') == ctm:
+                    break
             except BlockingIOError:
                 pass
             rep += 1
 
-        if rep == tries:
+        if len(ack) == 0 and rep == tries:
             if mesgbox.askretrycancel("Error", "No response from server. Try Again?"):
                 retry = 1
-    return ack
+    return ack[8:]
 
 class DropDown(tk.OptionMenu):
     def __init__(self, parent, optlist):
