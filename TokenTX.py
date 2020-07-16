@@ -418,10 +418,6 @@ class TokenTX:
             print("Key: {}, Value: {}".format(item['key'], item['value']))
 
     def send_txrec(self, txrec, tries=25):
-        txf = open("/tmp/txtoken.dat", "wb")
-        txf.write(txrec)
-        txf.close()
-
         sha = hashlib.new('sha256')
         sha.update(txrec)
         hashidx = sha.digest()
