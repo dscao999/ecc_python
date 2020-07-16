@@ -321,7 +321,7 @@ class TokenTX:
                 break;
             idx += 1
         if sval < value:
-            mesgbox.showerror("Logic Error", "Internal Logic Error")
+            mesgbox.showerror("Error", "Internal Logic Error")
             return
         owner = str2bin_b64(payto.encode('utf-8'))
         lptr = ctypes.create_string_buffer(8)
@@ -352,7 +352,7 @@ class TokenTX:
                 if mkey[1] == pkey:
                     break
             if pkey != mkey[1]:
-                mesgbox.showerror("Logic Error", "Internal Logic Error")
+                mesgbox.showerror("Error", "No Key to transfer the tokens")
                 self.glob.libtoktx.tx_trans_abort(ctypes.c_ulonglong(txrec))
                 return
             retv = self.glob.libtoktx.tx_trans_sign(ctypes.c_ulonglong(txrec), txbuf, 2048, mkey[0], i)
@@ -381,49 +381,35 @@ class TokenTX:
             reqbuf += bytestr
         reqbuf += int(0).to_bytes(1, 'little')
         reqbuf = len(reqbuf).to_bytes(4, 'little') + int(2).to_bytes(4, 'little') + reqbuf
-        retry = 1
-        while retry == 1:
-            self.glob.sock['sock'].sendto(reqbuf, self.glob.sock['sockaddr'])
-            rep = 0
-            while rep < self.glob.tries:
-                time.sleep(0.2)
-                try:
-                    ack = self.glob.sock['sock'].recv(2048)
-                    break
-                except BlockingIOError:
-                    pass
-                rep += 1
+        ack = send_txreq(self.glob.sock, reqbuf, self.glob.tries)
+        if len(ack) == 0:
+            return
 
-            if rep < self.glob.tries:
-                acklen = int.from_bytes(ack[:4], 'little')
-                ackval = int.from_bytes(ack[4:8], 'little')
-                if ackval != 1:
-                    mesgbox.showerror("Logic Error", "Invalid Response Received")
-                    break
-                pos = 8
-                while pos - 8 < acklen:
-                    strlen = int.from_bytes(ack[pos:pos+1], 'little')
-                    bkeyhash = ack[pos+1:pos+strlen+1]
-                    keyhash = bin2str_b64(bkeyhash).decode('utf-8')
-                    pos += strlen+1;
-                    value = int.from_bytes(ack[pos:pos+8], 'little')
-                    while value != 0:
-                        pos += 8
-                        strlen = int.from_bytes(ack[pos:pos+1], 'little')
-                        txid = ack[pos+1:pos+strlen+1]
-                        pos += strlen + 1
-                        vout_idx = int.from_bytes(ack[pos:pos+1], 'little')
-                        pos += 1
-                        kvlst.append({'value': value, 'key': keyhash, 'txid': txid, 'vout_idx': vout_idx})
-                        print("at vout index: {}".format(vout_idx))
-                        litem = keyhash + ' ---> ' + str(value)
-                        self.v_lbox.insert(tk.END, litem)
-                        value = int.from_bytes(ack[pos:pos+8], 'little')
-                    pos += 8
-                retry = 0
-            else:
-                if not mesgbox.askretrycancel("Error", "No response from server. Try Again?"):
-                    retry = 0
+        acklen = int.from_bytes(ack[:4], 'little')
+        ackval = int.from_bytes(ack[4:8], 'little')
+        if ackval != 1:
+            mesgbox.showerror("Logic Error", "Invalid Response Received")
+            return
+        pos = 8
+        while pos - 8 < acklen:
+            strlen = int.from_bytes(ack[pos:pos+1], 'little')
+            bkeyhash = ack[pos+1:pos+strlen+1]
+            keyhash = bin2str_b64(bkeyhash).decode('utf-8')
+            pos += strlen+1;
+            value = int.from_bytes(ack[pos:pos+8], 'little')
+            while value != 0:
+                pos += 8
+                strlen = int.from_bytes(ack[pos:pos+1], 'little')
+                txid = ack[pos+1:pos+strlen+1]
+                pos += strlen + 1
+                vout_idx = int.from_bytes(ack[pos:pos+1], 'little')
+                pos += 1
+                kvlst.append({'value': value, 'key': keyhash, 'txid': txid, 'vout_idx': vout_idx})
+                print("at vout index: {}".format(vout_idx))
+                litem = keyhash + ' ---> ' + str(value)
+                self.v_lbox.insert(tk.END, litem)
+                value = int.from_bytes(ack[pos:pos+8], 'little')
+            pos += 8
         print("etoken ID: {}".format(self.asset['token']))
         for item in self.asset['by_key']:
             print("Key: {}, Value: {}".format(item['key'], item['value']))
@@ -437,36 +423,19 @@ class TokenTX:
         sha.update(txrec)
         hashidx = sha.digest()
         packet = len(txrec).to_bytes(4, byteorder='little') + (1).to_bytes(4, byteorder='little') + txrec
-        tagain = 1
-        while tagain:
-            self.glob.sock['sock'].sendto(packet, self.glob.sock['sockaddr'])
-            rep = 0
-            while rep < tries:
-                time.sleep(0.2)
-                try:
-                    ack = self.glob.sock['sock'].recv(2048)
-                    break
-                except BlockingIOError:
-                    pass
-                rep += 1
-
-            if rep == tries:
-                askbox = mesgbox.askquestion("Error", "No response from server, Try again?")
-                if askbox != 'yes':
-                    tagain = 0
-                    continue
-            elif hashidx == ack[8:]:
-                acklen = int.from_bytes(ack[:4], 'little')
-                ackval = int.from_bytes(ack[4:8], 'little')
-                print("Ack: {}".format(ackval))
-                if ackval == 1 or ackval == 2:
-                    mesgbox.showinfo("Information", "Transaction Accepted")
-                elif ackval == 0:
-                    mesgbox.showerror("Error", "Transaction Rejected")
-                else:
-                    mesgbox.showerror("Error", "Server logic failed")
-                tagain = 0
-
+        ack = send_txreq(self.glob.sock, packet, tries)
+        if len(ack) == 0:
+            return
+        elif hashidx == ack[8:]:
+            acklen = int.from_bytes(ack[:4], 'little')
+            ackval = int.from_bytes(ack[4:8], 'little')
+            print("Ack: {}".format(ackval))
+            if ackval == 1 or ackval == 2:
+                mesgbox.showinfo("Information", "Transaction Accepted")
+            elif ackval == 0:
+                mesgbox.showerror("Error", "Transaction Rejected")
+            else:
+                mesgbox.showerror("Error", "Server logic failed")
 
     def create_token(self):
         sent = 0
