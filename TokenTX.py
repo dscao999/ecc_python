@@ -28,17 +28,16 @@ def send_txreq(socks, reqbuf, tries=25):
     ack = bytes()
     while retry == 1:
         socks['sock'].sendto(reqbuf, socks['sockaddr'])
-        #input("Just a pause: ")
         retry = 0
         rep = 0
         while rep < tries:
+            time.sleep(0.2)
             try:
                 ack = socks['sock'].recv(2048)
                 break
             except BlockingIOError:
                 pass
             rep += 1
-            time.sleep(0.1)
 
         if rep == tries:
             if mesgbox.askretrycancel("Error", "No response from server. Try Again?"):
@@ -387,13 +386,13 @@ class TokenTX:
             self.glob.sock['sock'].sendto(reqbuf, self.glob.sock['sockaddr'])
             rep = 0
             while rep < self.glob.tries:
+                time.sleep(0.2)
                 try:
                     ack = self.glob.sock['sock'].recv(2048)
                     break
                 except BlockingIOError:
                     pass
                 rep += 1
-                time.sleep(0.1)
 
             if rep < self.glob.tries:
                 acklen = int.from_bytes(ack[:4], 'little')
@@ -443,7 +442,7 @@ class TokenTX:
             self.glob.sock['sock'].sendto(packet, self.glob.sock['sockaddr'])
             rep = 0
             while rep < tries:
-                time.sleep(0.1)
+                time.sleep(0.2)
                 try:
                     ack = self.glob.sock['sock'].recv(2048)
                     break
