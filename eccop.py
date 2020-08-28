@@ -30,7 +30,7 @@ class PasswdInput(tk.Toplevel):
         topbar = tk.Frame(self)
         topbar.pack(side=tk.TOP, fill=tk.X)
         botbar = tk.Frame(self)
-        botbar.pack(side=tk.BOTTOM, fill=tk.Y)
+        botbar.pack(side=tk.BOTTOM, fill=tk.X)
         tk.Label(topbar, text="Password:", font=mfont).pack(side=tk.LEFT)
         passwd = ''
         self.pwdbox = tk.Entry(topbar, show='*', font=mfont)
